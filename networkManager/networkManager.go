@@ -28,6 +28,15 @@ func NewNetworkManager(configName string) *NetworkManager {
 	return &nm
 }
 
+//removes config file if exists
+func (nm NetworkManager)RemoveConfigFile(){
+	//do nothing if file not exist
+	if _, err := os.Stat(nm.ConfigPath); os.IsNotExist(err) {
+		return
+	}
+	os.Remove(nm.ConfigPath)
+}
+
 func (nm NetworkManager) RealodProcess() {
 	nmpid, err := exec.Command("pidof", "NetworkManager").Output()
 	if err != nil {
