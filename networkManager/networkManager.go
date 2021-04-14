@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"../networkHandler"
 )
 
 type NetworkManager struct {
@@ -106,9 +105,6 @@ func (nm NetworkManager) RemoveUnmanaged(iface string) error {
 }
 
 func (nm NetworkManager) AddUnmanaged(iface string) error {
-
-	//check interface name has a valid name exclude
-	iface = networkHandler.GetValidIfName(iface)
 
 	//checks network manager exists
 	if _, err := nm.GetVersion(); err != nil {
@@ -257,7 +253,7 @@ func (nm NetworkManager) KnownIface() []string {
 	return strings.Split(string(output), "\n")
 }
 
-//chrcks iiface is in network manager known ifaces list
+//checks iiface is in network manager known ifaces list
 func (nm NetworkManager) KnowsIface(iface string) bool {
 	nmIfaces := nm.KnownIface()
 	for _, nmIface := range nmIfaces {
