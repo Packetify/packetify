@@ -79,3 +79,33 @@ func IpForwardingStatus()bool{
 	}
 	return false
 }
+
+//disable ip forwarding via sysctl
+func DisableIpForwarding(){
+	//do nothing if disabled
+	if !IpForwardingStatus() {
+		return
+	}
+	if _,err := exec.Command("sysctl","-w","net.ipv4.ip_forward=0").Output();err!=nil{
+		panic(errors.New(" error during disabling ip forwarding"))
+	}
+}
+
+//disable ip forwarding for iface and system
+func DisableIpForwardingIface(iface string){
+	if !IsNetworkInterface(iface){
+		panic(errors.New("cant enable ip forwarding "))
+	}
+	DisableIpForwarding()
+
+	//do nothing if disabled
+	if !IpForwardingStatusIface(iface) {
+		return
+	}
+	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding",iface)
+	disbit:=[]byte("1")
+	err := ioutil.WriteFile(devPath,disbit,0644)
+	if err!=nil{
+		panic(err)
+	}
+}
