@@ -29,12 +29,15 @@ func NewNetworkManager(configName string) *NetworkManager {
 }
 
 //removes config file if exists
-func (nm NetworkManager)RemoveConfigFile(){
+func (nm NetworkManager)RemoveConfigFile()error{
 	//do nothing if file not exist
 	if _, err := os.Stat(nm.ConfigPath); os.IsNotExist(err) {
-		return
+		return nil
 	}
-	os.Remove(nm.ConfigPath)
+	if err:=os.Remove(nm.ConfigPath);err!=nil{
+		return errors.New("error during removing config file")
+	}
+	return nil
 }
 
 func (nm NetworkManager) RealodProcess() {
