@@ -37,6 +37,16 @@ func CreateVirtualIface(wifiIface string, ifaceName string) error {
 	if err := cmd.Run(); err != nil {
 		return errors.New("error during create new avirtual iface")
 	}
+	return nil
+}
 
+func DeleteVirtualIface(ifaceName string) error {
+	if !IsNetworkInterface(ifaceName) {
+		return errors.New("error while removing virt interface because not exists")
+	}
+	cmd := exec.Command("iw", "dev", ifaceName, "del")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
 	return nil
 }
