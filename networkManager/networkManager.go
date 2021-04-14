@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
+	"../networkHandler"
 )
 
 type NetworkManager struct {
@@ -108,7 +108,7 @@ func (nm NetworkManager) RemoveUnmanaged(iface string) error {
 func (nm NetworkManager) AddUnmanaged(iface string) error {
 
 	//check interface name has a valid name exclude
-	iface = getValidIfName(iface)
+	iface = networkHandler.GetValidIfName(iface)
 
 	//checks network manager exists
 	if _, err := nm.GetVersion(); err != nil {
@@ -169,19 +169,6 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 	}
 	nm.RealodProcess()
 	return nil
-}
-
-//validate interface name, returns modified name if invalid, panic if empty
-func getValidIfName(iface string) string {
-	if len(iface) == 0 {
-		panic(errors.New("iface name could not be empty"))
-	}
-	r, _ := regexp.Compile("[[:alnum:]:;,-]*")
-	iface = strings.Join(r.FindAllString(iface, -1), "")
-	if _, err := strconv.Atoi(string(iface[0])); err == nil {
-		iface = "ap" + iface
-	}
-	return iface
 }
 
 func nm_add_keyFile(cfgFile string) {
