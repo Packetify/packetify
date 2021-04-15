@@ -40,6 +40,7 @@ func CreateVirtualIface(wifiIface string, ifaceName string) error {
 	return nil
 }
 
+//deletes virtual network interface
 func DeleteVirtualIface(ifaceName string) error {
 	if !IsNetworkInterface(ifaceName) {
 		return errors.New("error while removing virt interface because not exists")
