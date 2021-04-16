@@ -1,6 +1,7 @@
 package networkManager
 
 import (
+	"../networkHandler"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -37,16 +38,6 @@ func (nm NetworkManager) RemoveConfigFile() error {
 		return errors.New("error during removing config file")
 	}
 	return nil
-}
-
-func (nm NetworkManager) RealodProcess() {
-	nmpid, err := exec.Command("pidof", "NetworkManager").Output()
-	if err != nil {
-		panic(err)
-	}
-	if len(nmpid) != 0 {
-		exec.Command("kill", "-HUP", string(nmpid))
-	}
 }
 
 func (nm NetworkManager) RemoveUnmanaged(iface string) error {
@@ -100,16 +91,25 @@ func (nm NetworkManager) RemoveUnmanaged(iface string) error {
 	if err := ioutil.WriteFile(nm.ConfigPath, []byte(output), 0755); err != nil {
 		return errors.New("can't write interface to config file")
 	}
-	nm.RealodProcess()
 	return nil
 }
 
 func (nm NetworkManager) AddUnmanaged(iface string) error {
 
+	if !networkHandler.IsNetworkInterface(iface) {
+		return errors.New(fmt.Sprintf("the %s is not a network interface make sure it's availabe or created", iface))
+	}
 	//checks network manager exists
 	if _, err := nm.GetVersion(); err != nil {
 		return errors.New("network Manager not exists")
 	}
+
+	//set iface as unmanaged via nmcli
+	cmd := exec.Command("nmcli", "device", "set", iface, "managed", "no")
+	if err := cmd.Run(); err != nil {
+		return errors.New("nmcli error for add unmanage device")
+	}
+
 	//create config directory if not exist
 	configDir := "/etc/NetworkManager/conf.d"
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
@@ -163,7 +163,6 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 		defer f.Close()
 		f.WriteString(configString)
 	}
-	nm.RealodProcess()
 	return nil
 }
 
