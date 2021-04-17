@@ -3,6 +3,7 @@ package networkHandler
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -48,6 +49,25 @@ func DeleteVirtualIface(ifaceName string) error {
 	cmd := exec.Command("iw", "dev", ifaceName, "del")
 	if err := cmd.Run(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func SetupIpToIface(iface string, gatewayIP *net.IPNet) error {
+	if !IsNetworkInterface(iface) {
+		return errors.New("error network iface not exists for setup IP")
+	}
+	brodcastIP := GetBroadCastIP(gatewayIP).String()
+
+	cidrIP := gatewayIP.String()
+	setDown := exec.Command("ip", "link", "set", "down", "dev", iface)
+	flush := exec.Command("ip", "addr", "flush", iface)
+	setUp := exec.Command("ip", "link", "set", "up", "dev", iface)
+	addIP := exec.Command("ip", "addr", "add", cidrIP, "broadcast", brodcastIP, "dev", iface)
+
+	commandList := []*exec.Cmd{setDown, flush, setUp, addIP}
+	for _, command := range commandList {
+		command.Run()
 	}
 	return nil
 }
