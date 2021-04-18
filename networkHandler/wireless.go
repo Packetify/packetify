@@ -71,3 +71,9 @@ func SetupIpToIface(iface string, gatewayIP *net.IPNet) error {
 	}
 	return nil
 }
+
+func GetAdapterKernelModule(iface string) string {
+	modulePath, _ := exec.Command("readlink", "-f", fmt.Sprintf("/sys/class/net/%s/device/driver/module", iface)).Output()
+	modName := strings.Split(string(modulePath), "/")
+	return modName[len(modName)-1]
+}
