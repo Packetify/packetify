@@ -5,10 +5,16 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 )
+
+type WifiDevice struct {
+	Iface string
+	Phy   string
+}
 
 //validate interface name, returns modified name if invalid, panic if empty
 func GetValidIfName(iface string) string {
@@ -76,4 +82,31 @@ func GetAdapterKernelModule(iface string) string {
 	modulePath, _ := exec.Command("readlink", "-f", fmt.Sprintf("/sys/class/net/%s/device/driver/module", iface)).Output()
 	modName := strings.Split(string(modulePath), "/")
 	return modName[len(modName)-1]
+}
+
+//returns phy of wifi devices by iface
+//returns empty string if iface wasn't 80211 or not exist
+func GetPhyOfDevice(iface string) string {
+	devicesList := GetWifiDevices()
+	for _,dev :=range devicesList{
+		if dev.Iface == iface{
+			return dev.Phy
+		}
+	}
+	return ""
+}
+
+//returns a list of wifi devices struct with iface and phy fields
+func GetWifiDevices() []WifiDevice {
+	var deviceList []WifiDevice
+	phyDevices, _ := filepath.Glob("/sys/class/ieee80211/*")
+	for _, phy := range phyDevices {
+		ifaceList, _ := filepath.Glob(phy + "/device/net/*")
+		for _, ifacePath := range ifaceList {
+			ifacePhy := strings.Split(phy, "/")
+			iface := strings.Split(ifacePath, "/")
+			deviceList = append(deviceList, WifiDevice{Phy: ifacePhy[len(ifacePhy)-1], Iface: iface[len(iface)-1]})
+		}
+	}
+	return deviceList
 }
