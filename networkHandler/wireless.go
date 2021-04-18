@@ -86,14 +86,17 @@ func GetAdapterKernelModule(iface string) string {
 
 //returns phy of wifi devices by iface
 //returns empty string if iface wasn't 80211 or not exist
-func GetPhyOfDevice(iface string) string {
+func GetPhyOfDevice(iface string) (string, error) {
+	if !IsNetworkInterface(iface) {
+		return "", errors.New("error unkown iface can't find phy address")
+	}
 	devicesList := GetWifiDevices()
-	for _,dev :=range devicesList{
-		if dev.Iface == iface{
-			return dev.Phy
+	for _, dev := range devicesList {
+		if dev.Iface == iface {
+			return dev.Phy, nil
 		}
 	}
-	return ""
+	return "", nil
 }
 
 //returns a list of wifi devices struct with iface and phy fields
@@ -109,4 +112,24 @@ func GetWifiDevices() []WifiDevice {
 		}
 	}
 	return deviceList
+}
+
+//returns adapter info by iface
+func GetAdapterInfo(iface string) (string, error) {
+	if !IsNetworkInterface(iface) {
+		return "", errors.New("unkown iface can't show adapter info")
+	}
+	ifacePhy, _ := GetPhyOfDevice(iface)
+	cmdOut, _ := exec.Command("iw", "phy", ifacePhy, "info").Output()
+	return string(cmdOut), nil
+}
+
+//returns true if iface has AP ability
+func CanBeAP(iface string) (bool, error) {
+	if !IsNetworkInterface(iface) {
+		return false, errors.New("unkown iface can't be AP")
+	}
+	r, _ := regexp.Compile("\\* AP")
+	adapterInfo, _ := GetAdapterInfo(iface)
+	return r.MatchString(adapterInfo), nil
 }
