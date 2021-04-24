@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"github.com/Packetify/ipcalc/ipv4calc"
 )
 
 type WifiDevice struct {
@@ -63,8 +64,9 @@ func SetupIpToIface(iface string, gatewayIP *net.IPNet) error {
 	if !IsNetworkInterface(iface) {
 		return errors.New("error network iface not exists for setup IP")
 	}
-	brodcastIP := GetBroadCastIP(gatewayIP).String()
 
+	ipcalc := ipv4calc.New(gatewayIP)
+	brodcastIP := ipcalc.GetBroadCastIP().String()
 	cidrIP := gatewayIP.String()
 	setDown := exec.Command("ip", "link", "set", "down", "dev", iface)
 	flush := exec.Command("ip", "addr", "flush", iface)
