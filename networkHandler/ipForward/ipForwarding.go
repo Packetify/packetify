@@ -1,27 +1,15 @@
-package networkHandler
+package ipForward
 
 import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os/exec"
 	"regexp"
 	"strings"
+	"github.com/Packetify/packetify/networkHandler"
 )
 
-func IsNetworkInterface(iface string) bool {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		panic(err)
-	}
-	for _, networkIface := range ifaces {
-		if networkIface.Name == iface {
-			return true
-		}
-	}
-	return false
-}
 
 //enables ip forwarding via sysctl
 func EnableIpForwarding() {
@@ -36,7 +24,7 @@ func EnableIpForwarding() {
 
 //enable ip forwarding for iface and system
 func EnableIpForwardingIface(iface string) {
-	if !IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface) {
 		panic(errors.New("cant enable ip forwarding "))
 	}
 	EnableIpForwarding()
@@ -55,7 +43,7 @@ func EnableIpForwardingIface(iface string) {
 
 //returns ip forwarding status of specified device iface
 func IpForwardingStatusIface(iface string) bool {
-	if !IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface) {
 		panic(errors.New("specified device is not a network interface"))
 	}
 	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface)
@@ -93,7 +81,7 @@ func DisableIpForwarding() {
 
 //disable ip forwarding for iface and system
 func DisableIpForwardingIface(iface string) {
-	if !IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface) {
 		panic(errors.New("cant enable ip forwarding "))
 	}
 	DisableIpForwarding()

@@ -1,4 +1,4 @@
-package networkHandler
+package wifi
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"github.com/Packetify/ipcalc/ipv4calc"
+	"github.com/Packetify/packetify/networkHandler"
 )
 
 type WifiDevice struct {
@@ -33,11 +34,11 @@ func GetValidIfName(iface string) string {
 // creates a new virtual interface for access point on top of wifi interface via iw
 func CreateVirtualIface(wifiIface string, ifaceName string) error {
 	ifaceName = GetValidIfName(ifaceName)
-	if !IsNetworkInterface(wifiIface) {
+	if !networkHandler.IsNetworkInterface(wifiIface) {
 		return errors.New(fmt.Sprintf("%s is not a network interface", wifiIface))
 	}
 
-	if IsNetworkInterface(ifaceName) {
+	if networkHandler.IsNetworkInterface(ifaceName) {
 		return errors.New("interface already exists")
 	}
 
@@ -50,7 +51,7 @@ func CreateVirtualIface(wifiIface string, ifaceName string) error {
 
 //deletes virtual network interface
 func DeleteVirtualIface(ifaceName string) error {
-	if !IsNetworkInterface(ifaceName) {
+	if !networkHandler.IsNetworkInterface(ifaceName) {
 		return errors.New("error while removing virt interface because not exists")
 	}
 	cmd := exec.Command("iw", "dev", ifaceName, "del")
@@ -61,7 +62,7 @@ func DeleteVirtualIface(ifaceName string) error {
 }
 
 func SetupIpToIface(iface string, gatewayIP *net.IPNet) error {
-	if !IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface) {
 		return errors.New("error network iface not exists for setup IP")
 	}
 
@@ -89,7 +90,7 @@ func GetAdapterKernelModule(iface string) string {
 //returns phy of wifi devices by iface
 //returns empty string if iface wasn't 80211 or not exist
 func GetPhyOfDevice(iface string) (string, error) {
-	if !IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface) {
 		return "", errors.New("error unkown iface can't find phy address")
 	}
 	devicesList := GetWifiDevices()
@@ -118,7 +119,7 @@ func GetWifiDevices() []WifiDevice {
 
 //returns adapter info by iface
 func GetAdapterInfo(iface string) (string, error) {
-	if !IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface) {
 		return "", errors.New("unkown iface can't show adapter info")
 	}
 	ifacePhy, _ := GetPhyOfDevice(iface)
@@ -128,7 +129,7 @@ func GetAdapterInfo(iface string) (string, error) {
 
 //returns true if iface has AP ability
 func CanBeAP(iface string) (bool, error) {
-	if !IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface) {
 		return false, errors.New("unkown iface can't be AP")
 	}
 	r, _ := regexp.Compile("\\* AP")

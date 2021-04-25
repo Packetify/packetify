@@ -1,7 +1,7 @@
 package networkManager
 
 import (
-	"../networkHandler"
+	"github.com/Packetify/packetify/networkHandler"
 	"errors"
 	"fmt"
 	"io/ioutil"
