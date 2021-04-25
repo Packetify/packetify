@@ -3,11 +3,12 @@ package ipForward
 import (
 	"errors"
 	"fmt"
+	"github.com/Packetify/packetify/networkHandler"
 	"io/ioutil"
+	"net"
 	"os/exec"
 	"regexp"
 	"strings"
-	"github.com/Packetify/packetify/networkHandler"
 )
 
 
@@ -23,7 +24,7 @@ func EnableIpForwarding() {
 }
 
 //enable ip forwarding for iface and system
-func EnableIpForwardingIface(iface string) {
+func EnableIpForwardingIface(iface net.Interface) {
 	if !networkHandler.IsNetworkInterface(iface) {
 		panic(errors.New("cant enable ip forwarding "))
 	}
@@ -33,7 +34,7 @@ func EnableIpForwardingIface(iface string) {
 	if IpForwardingStatusIface(iface) {
 		return
 	}
-	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface)
+	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
 	enbit := []byte("1")
 	err := ioutil.WriteFile(devPath, enbit, 0644)
 	if err != nil {
@@ -42,11 +43,11 @@ func EnableIpForwardingIface(iface string) {
 }
 
 //returns ip forwarding status of specified device iface
-func IpForwardingStatusIface(iface string) bool {
+func IpForwardingStatusIface(iface net.Interface) bool {
 	if !networkHandler.IsNetworkInterface(iface) {
 		panic(errors.New("specified device is not a network interface"))
 	}
-	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface)
+	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
 	devStatus, _ := ioutil.ReadFile(devPath)
 	result := strings.Replace(string(devStatus), "\n", "", -1)
 	if result == "1" {
@@ -80,7 +81,7 @@ func DisableIpForwarding() {
 }
 
 //disable ip forwarding for iface and system
-func DisableIpForwardingIface(iface string) {
+func DisableIpForwardingIface(iface net.Interface) {
 	if !networkHandler.IsNetworkInterface(iface) {
 		panic(errors.New("cant enable ip forwarding "))
 	}
@@ -90,7 +91,7 @@ func DisableIpForwardingIface(iface string) {
 	if !IpForwardingStatusIface(iface) {
 		return
 	}
-	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface)
+	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
 	disbit := []byte("1")
 	err := ioutil.WriteFile(devPath, disbit, 0644)
 	if err != nil {

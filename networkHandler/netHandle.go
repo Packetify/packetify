@@ -2,13 +2,13 @@ package networkHandler
 
 import "net"
 
-func IsNetworkInterface(iface string) bool {
+func IsNetworkInterface(iface net.Interface) bool {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		panic(err)
 	}
 	for _, networkIface := range ifaces {
-		if networkIface.Name == iface {
+		if networkIface.Name == iface.Name {
 			return true
 		}
 	}

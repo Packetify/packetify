@@ -40,8 +40,8 @@ func (nm NetworkManager) RemoveConfigFile() error {
 	return nil
 }
 
-func (nm NetworkManager) RemoveUnmanaged(iface string) error {
-	if len(iface) == 0 {
+func (nm NetworkManager) RemoveUnmanaged(iface net.Interface) error {
+	if len(iface.Name) == 0 {
 		return errors.New("iface name is empty")
 	}
 	//checks network manager exists
@@ -58,7 +58,7 @@ func (nm NetworkManager) RemoveUnmanaged(iface string) error {
 
 	hasIface := func(ifaceDevices []string) bool {
 		for _, nmiface := range ifaceDevices {
-			if iface == nmiface {
+			if iface.Name == nmiface {
 				return true
 			}
 		}
@@ -71,7 +71,7 @@ func (nm NetworkManager) RemoveUnmanaged(iface string) error {
 
 	configString := "unmanaged-devices="
 	for _, nmiface := range unmanagedIfaces {
-		if iface == nmiface {
+		if iface.Name == nmiface {
 			continue
 		}
 		temp := fmt.Sprintf("interface-name:%s;", nmiface)
@@ -94,7 +94,7 @@ func (nm NetworkManager) RemoveUnmanaged(iface string) error {
 	return nil
 }
 
-func (nm NetworkManager) AddUnmanaged(iface string) error {
+func (nm NetworkManager) AddUnmanaged(iface net.Interface) error {
 
 	if !networkHandler.IsNetworkInterface(iface) {
 		return errors.New(fmt.Sprintf("the %s is not a network interface make sure it's availabe or created", iface))
@@ -105,7 +105,7 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 	}
 
 	//set iface as unmanaged via nmcli
-	cmd := exec.Command("nmcli", "device", "set", iface, "managed", "no")
+	cmd := exec.Command("nmcli", "device", "set", iface.Name, "managed", "no")
 	if err := cmd.Run(); err != nil {
 		return errors.New("nmcli error for add unmanage device")
 	}
@@ -127,14 +127,14 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 	if unmanagedIfaces != nil {
 		for _, unmIface := range unmanagedIfaces {
 			//do nothing if it's unmanaged
-			if iface == unmIface {
+			if iface.Name == unmIface {
 				return nil
 			}
 		}
 
 		//create unmanaged text for config file
 		//append iface to unmanaged devices
-		unmanagedIfaces = append(unmanagedIfaces, iface)
+		unmanagedIfaces = append(unmanagedIfaces, iface.Name)
 		for _, unmIface := range unmanagedIfaces {
 			temp := fmt.Sprintf("interface-name:%s;", unmIface)
 			configString += temp
@@ -155,7 +155,7 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 			return errors.New("can't write interface to config file")
 		}
 	} else {
-		configString := configString + "interface-name:" + iface + "\n"
+		configString := configString + "interface-name:" + iface.Name + "\n"
 		f, err := os.OpenFile(nm.ConfigPath, os.O_APPEND|os.O_WRONLY, 0755)
 		if err != nil {
 			return errors.New("can't write interface to config file")
@@ -207,8 +207,8 @@ func (nm NetworkManager) GetVersion() (string, error) {
 	return r.FindString(string(nmversion)), nil
 }
 
-func (nm NetworkManager) IsUnmanaged(iface string) (bool, error) {
-	if !nm.IsNetworkInterface(iface) {
+func (nm NetworkManager) IsUnmanaged(iface net.Interface) (bool, error) {
+	if !networkHandler.IsNetworkInterface(iface) {
 		return false, errors.New("passed interface is not network interface")
 	}
 
@@ -230,19 +230,6 @@ func (nm NetworkManager) IsUnmanaged(iface string) (bool, error) {
 	return false, nil
 }
 
-func (nm NetworkManager) IsNetworkInterface(iface string) bool {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		panic(err)
-	}
-	for _, networkIface := range ifaces {
-		if networkIface.Name == iface {
-			return true
-		}
-	}
-	return false
-}
-
 //returns list of network ifaces known by network manager
 func (nm NetworkManager) KnownIface() []string {
 	output, err := exec.Command("nmcli", "-t", "-f", "DEVICE", "d").Output()
@@ -253,10 +240,10 @@ func (nm NetworkManager) KnownIface() []string {
 }
 
 //checks iiface is in network manager known ifaces list
-func (nm NetworkManager) KnowsIface(iface string) bool {
+func (nm NetworkManager) KnowsIface(iface net.Interface) bool {
 	nmIfaces := nm.KnownIface()
 	for _, nmIface := range nmIfaces {
-		if nmIface == iface {
+		if nmIface == iface.Name {
 			return true
 		}
 	}
