@@ -25,7 +25,7 @@ func EnableIpForwarding() {
 
 //enable ip forwarding for iface and system
 func EnableIpForwardingIface(iface net.Interface) {
-	if !networkHandler.IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface.Name) {
 		panic(errors.New("cant enable ip forwarding "))
 	}
 	EnableIpForwarding()
@@ -44,7 +44,7 @@ func EnableIpForwardingIface(iface net.Interface) {
 
 //returns ip forwarding status of specified device iface
 func IpForwardingStatusIface(iface net.Interface) bool {
-	if !networkHandler.IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface.Name) {
 		panic(errors.New("specified device is not a network interface"))
 	}
 	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
@@ -82,7 +82,7 @@ func DisableIpForwarding() {
 
 //disable ip forwarding for iface and system
 func DisableIpForwardingIface(iface net.Interface) {
-	if !networkHandler.IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface.Name) {
 		panic(errors.New("cant enable ip forwarding "))
 	}
 	DisableIpForwarding()

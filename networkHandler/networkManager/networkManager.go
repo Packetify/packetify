@@ -94,7 +94,7 @@ func (nm NetworkManager) RemoveUnmanaged(iface net.Interface) error {
 	return nil
 }
 
-func (nm NetworkManager) AddUnmanaged(iface net.Interface) error {
+func (nm NetworkManager) AddUnmanaged(iface string) error {
 
 	if !networkHandler.IsNetworkInterface(iface) {
 		return errors.New(fmt.Sprintf("the %s is not a network interface make sure it's availabe or created", iface))
@@ -105,7 +105,7 @@ func (nm NetworkManager) AddUnmanaged(iface net.Interface) error {
 	}
 
 	//set iface as unmanaged via nmcli
-	cmd := exec.Command("nmcli", "device", "set", iface.Name, "managed", "no")
+	cmd := exec.Command("nmcli", "device", "set", iface, "managed", "no")
 	if err := cmd.Run(); err != nil {
 		return errors.New("nmcli error for add unmanage device")
 	}
@@ -127,14 +127,14 @@ func (nm NetworkManager) AddUnmanaged(iface net.Interface) error {
 	if unmanagedIfaces != nil {
 		for _, unmIface := range unmanagedIfaces {
 			//do nothing if it's unmanaged
-			if iface.Name == unmIface {
+			if iface == unmIface {
 				return nil
 			}
 		}
 
 		//create unmanaged text for config file
 		//append iface to unmanaged devices
-		unmanagedIfaces = append(unmanagedIfaces, iface.Name)
+		unmanagedIfaces = append(unmanagedIfaces, iface)
 		for _, unmIface := range unmanagedIfaces {
 			temp := fmt.Sprintf("interface-name:%s;", unmIface)
 			configString += temp
@@ -155,7 +155,7 @@ func (nm NetworkManager) AddUnmanaged(iface net.Interface) error {
 			return errors.New("can't write interface to config file")
 		}
 	} else {
-		configString := configString + "interface-name:" + iface.Name + "\n"
+		configString := configString + "interface-name:" + iface + "\n"
 		f, err := os.OpenFile(nm.ConfigPath, os.O_APPEND|os.O_WRONLY, 0755)
 		if err != nil {
 			return errors.New("can't write interface to config file")
@@ -208,7 +208,7 @@ func (nm NetworkManager) GetVersion() (string, error) {
 }
 
 func (nm NetworkManager) IsUnmanaged(iface net.Interface) (bool, error) {
-	if !networkHandler.IsNetworkInterface(iface) {
+	if !networkHandler.IsNetworkInterface(iface.Name) {
 		return false, errors.New("passed interface is not network interface")
 	}
 

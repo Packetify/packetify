@@ -2,7 +2,6 @@ package wifi
 
 import (
 	"errors"
-	"fmt"
 	"github.com/Packetify/ipcalc/ipv4calc"
 	"github.com/Packetify/packetify/networkHandler"
 	"net"
@@ -14,65 +13,81 @@ import (
 )
 
 type WifiDevice struct {
-	Iface string
-	Phy   string
+	Phy string
+	net.Interface
+}
+
+func New(iface string) *WifiDevice {
+	if !networkHandler.IsNetworkInterface(iface) || !IsWifiDevice(iface) {
+		panic(errors.New("can't create wifi instance, iface is not a wifi device"))
+	}
+	for _, dev := range GetWifiDevices() {
+		if dev.Name == iface {
+			return &dev
+		}
+	}
+	return nil
+}
+
+func IsWifiDevice(iface string) bool {
+	for _, dev := range GetWifiDevices() {
+		if dev.Name == iface {
+			return true
+		}
+	}
+	return false
 }
 
 //validate interface name, returns modified name if invalid, panic if empty
-func GetValidIfName(iface net.Interface) string {
-	if len(iface.Name) == 0 {
+func getValidIfName(iface string) string {
+	if len(iface) == 0 {
 		panic(errors.New("iface name could not be empty"))
 	}
 	r, _ := regexp.Compile("[[:alnum:]:;,-]*")
-	iface.Name = strings.Join(r.FindAllString(iface.Name, -1), "")
-	if _, err := strconv.Atoi(string(iface.Name[0])); err == nil {
-		iface.Name = "ap" + iface.Name
+	iface = strings.Join(r.FindAllString(iface, -1), "")
+	if _, err := strconv.Atoi(string(iface[0])); err == nil {
+		iface = "ap" + iface
 	}
-	return iface.Name
+	return iface
 }
 
 // creates a new virtual interface for access point on top of wifi interface via iw
-func CreateVirtualIface(wifiIface net.Interface, virtIface net.Interface) error {
-	virtIface.Name = GetValidIfName(virtIface)
-	if !networkHandler.IsNetworkInterface(wifiIface) {
-		return errors.New(fmt.Sprintf("%s is not a network interface", wifiIface))
-	}
+func (wifiDev WifiDevice) CreateVirtualIface(virtIface string) error {
+	virtIface = getValidIfName(virtIface)
 
 	if networkHandler.IsNetworkInterface(virtIface) {
 		return errors.New("interface already exists")
 	}
 
-	cmd := exec.Command("iw", "dev", wifiIface.Name, "interface", "add", virtIface.Name, "type", "__ap")
+	cmd := exec.Command("iw", "dev", wifiDev.Name, "interface", "add", virtIface, "type", "__ap")
 	if err := cmd.Run(); err != nil {
 		return errors.New("error during create new avirtual iface")
 	}
 	return nil
 }
 
-//deletes virtual network interface
-func DeleteVirtualIface(virtIface net.Interface) error {
-	if !networkHandler.IsNetworkInterface(virtIface) {
-		return errors.New("error while removing virt interface because not exists")
-	}
-	cmd := exec.Command("iw", "dev", virtIface.Name, "del")
-	if err := cmd.Run(); err != nil {
-		return err
+//deletes virtual network interface if exist
+func (wifiDev WifiDevice) DeleteVirtualIface(virtIface string) error {
+	if networkHandler.IsNetworkInterface(virtIface) {
+		cmd := exec.Command("iw", "dev", virtIface, "del")
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+		return nil
 	}
 	return nil
 }
 
-func SetupIpToIface(iface net.Interface, gatewayIP *net.IPNet) error {
-	if !networkHandler.IsNetworkInterface(iface) {
-		return errors.New("error network iface not exists for setup IP")
-	}
+//assigns ip to virtual interface
+func (wifiDev WifiDevice) SetupIpToVirtIface(gatewayIP *net.IPNet,virtIface string) error {
 
 	ipcalc := ipv4calc.New(gatewayIP)
 	brodcastIP := ipcalc.GetBroadCastIP().String()
 	cidrIP := gatewayIP.String()
-	setDown := exec.Command("ip", "link", "set", "down", "dev", iface.Name)
-	flush := exec.Command("ip", "addr", "flush", iface.Name)
-	setUp := exec.Command("ip", "link", "set", "up", "dev", iface.Name)
-	addIP := exec.Command("ip", "addr", "add", cidrIP, "broadcast", brodcastIP, "dev", iface.Name)
+	setDown := exec.Command("ip", "link", "set", "down", "dev", virtIface)
+	flush := exec.Command("ip", "addr", "flush", virtIface)
+	setUp := exec.Command("ip", "link", "set", "up", "dev", virtIface)
+	addIP := exec.Command("ip", "addr", "add", cidrIP, "broadcast", brodcastIP, "dev", virtIface)
 
 	commandList := []*exec.Cmd{setDown, flush, setUp, addIP}
 	for _, command := range commandList {
@@ -81,21 +96,15 @@ func SetupIpToIface(iface net.Interface, gatewayIP *net.IPNet) error {
 	return nil
 }
 
-func GetAdapterKernelModule(iface net.Interface) string {
-	modulePath, _ := exec.Command("readlink", "-f", fmt.Sprintf("/sys/class/net/%s/device/driver/module", iface.Name)).Output()
-	modName := strings.Split(string(modulePath), "/")
-	return modName[len(modName)-1]
-}
-
 //returns phy of wifi devices by iface
 //returns empty string if iface wasn't 80211 or not exist
-func GetPhyOfDevice(iface net.Interface) (string, error) {
+func GetPhyOfDevice(iface string) (string, error) {
 	if !networkHandler.IsNetworkInterface(iface) {
 		return "", errors.New("error unkown iface can't find phy address")
 	}
 	devicesList := GetWifiDevices()
 	for _, dev := range devicesList {
-		if dev.Iface == iface.Name {
+		if dev.Name == iface {
 			return dev.Phy, nil
 		}
 	}
@@ -105,34 +114,37 @@ func GetPhyOfDevice(iface net.Interface) (string, error) {
 //returns a list of wifi devices struct with iface and phy fields
 func GetWifiDevices() []WifiDevice {
 	var deviceList []WifiDevice
+	allInterfaces, _ := net.Interfaces()
 	phyDevices, _ := filepath.Glob("/sys/class/ieee80211/*")
 	for _, phy := range phyDevices {
 		ifaceList, _ := filepath.Glob(phy + "/device/net/*")
+		ifacePhy := strings.Split(phy, "/")
+		phyName := ifacePhy[len(ifacePhy)-1]
 		for _, ifacePath := range ifaceList {
-			ifacePhy := strings.Split(phy, "/")
 			iface := strings.Split(ifacePath, "/")
-			deviceList = append(deviceList, WifiDevice{Phy: ifacePhy[len(ifacePhy)-1], Iface: iface[len(iface)-1]})
+			ifaceName := iface[len(iface)-1]
+			for _, dev := range allInterfaces {
+				if dev.Name == ifaceName {
+					deviceList = append(deviceList, WifiDevice{phyName, dev})
+				}
+			}
 		}
 	}
 	return deviceList
 }
 
 //returns adapter info by iface
-func GetAdapterInfo(iface net.Interface) (string, error) {
-	if !networkHandler.IsNetworkInterface(iface) {
-		return "", errors.New("unkown iface can't show adapter info")
-	}
-	ifacePhy, _ := GetPhyOfDevice(iface)
-	cmdOut, _ := exec.Command("iw", "phy", ifacePhy, "info").Output()
+func (wifiDev WifiDevice) GetAdapterInfo() (string, error) {
+	cmdOut, _ := exec.Command("iw", "phy", wifiDev.Phy, "info").Output()
 	return string(cmdOut), nil
 }
 
 //returns true if iface has AP ability
-func CanBeAP(iface net.Interface) (bool, error) {
-	if !networkHandler.IsNetworkInterface(iface) {
+func (wifiDev WifiDevice) CanBeAP() (bool, error) {
+	if !networkHandler.IsNetworkInterface(wifiDev.Name) {
 		return false, errors.New("unkown iface can't be AP")
 	}
 	r, _ := regexp.Compile("\\* AP")
-	adapterInfo, _ := GetAdapterInfo(iface)
+	adapterInfo, _ := wifiDev.GetAdapterInfo()
 	return r.MatchString(adapterInfo), nil
 }
