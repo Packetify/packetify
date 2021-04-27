@@ -140,11 +140,31 @@ func (wifiDev WifiDevice) GetAdapterInfo() (string, error) {
 }
 
 //returns true if iface has AP ability
-func (wifiDev WifiDevice) CanBeAP() (bool, error) {
-	if !networkHandler.IsNetworkInterface(wifiDev.Name) {
-		return false, errors.New("unkown iface can't be AP")
+func (wifiDev WifiDevice) HasAPAndVirtIfaceMode() bool {
+	count:=0
+	for _,mode:=range wifiDev.GetModes(){
+		if mode == "AP" || mode=="AP/VLAN"{
+			count++
+		}
 	}
-	r, _ := regexp.Compile("\\* AP")
-	adapterInfo, _ := wifiDev.GetAdapterInfo()
-	return r.MatchString(adapterInfo), nil
+	if count ==2{
+		return true
+	}
+	return false
+}
+
+//returns wifi adaptor supported modes
+func (wifiDev WifiDevice) GetModes()[]string{
+	var modeList []string
+	cardInfo ,_:= wifiDev.GetAdapterInfo()
+	r,_:=regexp.Compile("Supported interface modes:\\n(\\t\\t\\s\\*\\s([A-Za-z-/0-9]*)\\n)*")
+	adaptorModes := strings.Split(r.FindString(cardInfo),"\n")
+	for _,mode := range adaptorModes{
+		if strings.Contains(mode,"*"){
+			mode = strings.ReplaceAll(mode,"\t\t * ","")
+			modeList = append(modeList,mode)
+		}
+	}
+
+	return modeList
 }
