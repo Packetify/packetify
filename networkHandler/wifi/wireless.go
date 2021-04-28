@@ -13,7 +13,9 @@ import (
 )
 
 type WifiDevice struct {
-	Phy string
+	Phy        string
+	virtIfaces []net.Interface
+	modes      []string
 	net.Interface
 }
 
@@ -52,16 +54,21 @@ func getValidIfName(iface string) string {
 }
 
 // creates a new virtual interface for access point on top of wifi interface via iw
-func (wifiDev WifiDevice) CreateVirtualIface(virtIface string) error {
+func (wifiDev *WifiDevice) CreateVirtualIface(virtIface string) error {
 	virtIface = getValidIfName(virtIface)
 
 	if networkHandler.IsNetworkInterface(virtIface) {
 		return errors.New("interface already exists")
 	}
-
 	cmd := exec.Command("iw", "dev", wifiDev.Name, "interface", "add", virtIface, "type", "__ap")
 	if err := cmd.Run(); err != nil {
 		return errors.New("error during create new avirtual iface")
+	}
+	allInterfaces, _ := net.Interfaces()
+	for _, iface := range allInterfaces {
+		if iface.Name == virtIface {
+			wifiDev.virtIfaces = append(wifiDev.virtIfaces, iface)
+		}
 	}
 	return nil
 }
@@ -79,7 +86,7 @@ func (wifiDev WifiDevice) DeleteVirtualIface(virtIface string) error {
 }
 
 //assigns ip to virtual interface
-func (wifiDev WifiDevice) SetupIpToVirtIface(gatewayIP *net.IPNet,virtIface string) error {
+func (wifiDev WifiDevice) SetupIpToVirtIface(gatewayIP *net.IPNet, virtIface string) error {
 
 	ipcalc := ipv4calc.New(gatewayIP)
 	brodcastIP := ipcalc.GetBroadCastIP().String()
@@ -111,7 +118,7 @@ func GetPhyOfDevice(iface string) (string, error) {
 	return "", nil
 }
 
-//returns a list of wifi devices struct with iface and phy fields
+//returns a list of wifi devices struct
 func GetWifiDevices() []WifiDevice {
 	var deviceList []WifiDevice
 	allInterfaces, _ := net.Interfaces()
@@ -125,7 +132,9 @@ func GetWifiDevices() []WifiDevice {
 			ifaceName := iface[len(iface)-1]
 			for _, dev := range allInterfaces {
 				if dev.Name == ifaceName {
-					deviceList = append(deviceList, WifiDevice{phyName, dev})
+					wifidev := WifiDevice{Phy: phyName, Interface: dev}
+					wifidev.modes = wifidev.getModes()
+					deviceList = append(deviceList, wifidev)
 				}
 			}
 		}
@@ -141,30 +150,37 @@ func (wifiDev WifiDevice) GetAdapterInfo() (string, error) {
 
 //returns true if iface has AP ability
 func (wifiDev WifiDevice) HasAPAndVirtIfaceMode() bool {
-	count:=0
-	for _,mode:=range wifiDev.GetModes(){
-		if mode == "AP" || mode=="AP/VLAN"{
+	count := 0
+	for _, mode := range wifiDev.modes {
+		if mode == "AP" || mode == "AP/VLAN" {
 			count++
 		}
 	}
-	if count ==2{
+	if count == 2 {
 		return true
 	}
 	return false
 }
 
 //returns wifi adaptor supported modes
-func (wifiDev WifiDevice) GetModes()[]string{
+func (wifiDev WifiDevice) getModes() []string {
 	var modeList []string
-	cardInfo ,_:= wifiDev.GetAdapterInfo()
-	r,_:=regexp.Compile("Supported interface modes:\\n(\\t\\t\\s\\*\\s([A-Za-z-/0-9]*)\\n)*")
-	adaptorModes := strings.Split(r.FindString(cardInfo),"\n")
-	for _,mode := range adaptorModes{
-		if strings.Contains(mode,"*"){
-			mode = strings.ReplaceAll(mode,"\t\t * ","")
-			modeList = append(modeList,mode)
+	cardInfo, _ := wifiDev.GetAdapterInfo()
+	r, _ := regexp.Compile("Supported interface modes:\\n(\\t\\t\\s\\*\\s([A-Za-z-/0-9]*)\\n)*")
+	adaptorModes := strings.Split(r.FindString(cardInfo), "\n")
+	for _, mode := range adaptorModes {
+		if strings.Contains(mode, "*") {
+			mode = strings.ReplaceAll(mode, "\t\t * ", "")
+			modeList = append(modeList, mode)
 		}
 	}
-
 	return modeList
+}
+
+func (WifiDevice WifiDevice) GetAdapterModes() []string {
+	return WifiDevice.modes
+}
+
+func (WifiDevice WifiDevice) GetVirtIfaces() []net.Interface {
+	return WifiDevice.virtIfaces
 }
