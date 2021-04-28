@@ -11,7 +11,6 @@ import (
 	"strings"
 )
 
-
 //enables ip forwarding via sysctl
 func EnableIpForwarding() {
 	//do nothing if enabled

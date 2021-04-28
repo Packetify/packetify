@@ -107,7 +107,9 @@ func (wifiDev WifiDevice) IsVirtInterface(iface string) bool {
 
 //assigns ip to virtual interface
 func (wifiDev WifiDevice) SetupIpToVirtIface(gatewayIP *net.IPNet, virtIface string) error {
-
+	if !wifiDev.IsVirtInterface(virtIface) {
+		return errors.New("ip assign failed virtual iface not exists")
+	}
 	ipcalc := ipv4calc.New(gatewayIP)
 	brodcastIP := ipcalc.GetBroadCastIP().String()
 	cidrIP := gatewayIP.String()

@@ -1,9 +1,9 @@
 package networkManager
 
 import (
-	"github.com/Packetify/packetify/networkHandler"
 	"errors"
 	"fmt"
+	"github.com/Packetify/packetify/networkHandler"
 	"io/ioutil"
 	"net"
 	"os"
@@ -239,7 +239,7 @@ func (nm NetworkManager) KnownIface() []string {
 	return strings.Split(string(output), "\n")
 }
 
-//checks iiface is in network manager known ifaces list
+//checks iface is in network manager known ifaces list
 func (nm NetworkManager) KnowsIface(iface net.Interface) bool {
 	nmIfaces := nm.KnownIface()
 	for _, nmIface := range nmIfaces {
