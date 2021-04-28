@@ -19,6 +19,7 @@ type WifiDevice struct {
 	net.Interface
 }
 
+//creates a new instance of wifiDevice struct
 func New(iface string) *WifiDevice {
 	if !networkHandler.IsNetworkInterface(iface) || !IsWifiDevice(iface) {
 		panic(errors.New("can't create wifi instance, iface is not a wifi device"))
@@ -74,15 +75,34 @@ func (wifiDev *WifiDevice) CreateVirtualIface(virtIface string) error {
 }
 
 //deletes virtual network interface if exist
-func (wifiDev WifiDevice) DeleteVirtualIface(virtIface string) error {
-	if networkHandler.IsNetworkInterface(virtIface) {
+func (wifiDev *WifiDevice) DeleteVirtualIface(virtIface string) error {
+
+	if wifiDev.IsVirtInterface(virtIface) {
 		cmd := exec.Command("iw", "dev", virtIface, "del")
 		if err := cmd.Run(); err != nil {
 			return err
 		}
+
+		virtListTemp := make([]net.Interface, 0)
+		for index, vif := range wifiDev.virtIfaces {
+			if vif.Name == virtIface {
+				virtListTemp = append(virtListTemp, wifiDev.virtIfaces[:index]...)
+				wifiDev.virtIfaces = append(virtListTemp, wifiDev.virtIfaces[index+1:]...)
+			}
+		}
 		return nil
 	}
-	return nil
+	return errors.New("virtual iface is not exist")
+}
+
+//returns true if virtual interface created before
+func (wifiDev WifiDevice) IsVirtInterface(iface string) bool {
+	for _, virtIF := range wifiDev.virtIfaces {
+		if iface == virtIF.Name {
+			return true
+		}
+	}
+	return false
 }
 
 //assigns ip to virtual interface
@@ -118,7 +138,7 @@ func GetPhyOfDevice(iface string) (string, error) {
 	return "", nil
 }
 
-//returns a list of wifi devices struct
+//returns a slice of wifi devices available in your machine
 func GetWifiDevices() []WifiDevice {
 	var deviceList []WifiDevice
 	allInterfaces, _ := net.Interfaces()
@@ -177,10 +197,12 @@ func (wifiDev WifiDevice) getModes() []string {
 	return modeList
 }
 
+//returns a slice of wifi adapter supported modes
 func (WifiDevice WifiDevice) GetAdapterModes() []string {
 	return WifiDevice.modes
 }
 
+//returns a slice of virtual interfaces created before
 func (WifiDevice WifiDevice) GetVirtIfaces() []net.Interface {
 	return WifiDevice.virtIfaces
 }
