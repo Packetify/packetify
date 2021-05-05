@@ -19,6 +19,11 @@ type WifiDevice struct {
 	net.Interface
 }
 
+type Frequency struct {
+	Channel int
+	Freq    string
+}
+
 //creates a new instance of wifiDevice struct
 func New(iface string) *WifiDevice {
 	if !networkHandler.IsNetworkInterface(iface) || !IsWifiDevice(iface) {
@@ -207,4 +212,28 @@ func (WifiDevice WifiDevice) GetAdapterModes() []string {
 //returns a slice of virtual interfaces created before
 func (WifiDevice WifiDevice) GetVirtIfaces() []net.Interface {
 	return WifiDevice.virtIfaces
+}
+
+func (wifiDev WifiDevice) GetSupportedFreq() []Frequency {
+	freqList := make([]Frequency, 0)
+	cmdOut, _ := exec.Command("iwlist", wifiDev.Name, "freq").Output()
+	r, _ := regexp.Compile("(\\d*)\\s:(\\s\\d*\\.\\d*.*)")
+	allFreqs := r.FindAllString(string(cmdOut), -1)
+	for _, fq := range allFreqs {
+		tmp := strings.Split(fq, ":")
+		channel, _ := strconv.Atoi(strings.Trim(tmp[0], " "))
+		frequency := strings.Trim(tmp[1], " ")
+		freqList = append(freqList, Frequency{Channel: channel, Freq: frequency})
+	}
+	return freqList
+}
+
+func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
+	allFreqs := wifiDev.GetSupportedFreq()
+	for _, frq := range allFreqs {
+		if frq.Channel == channel {
+			return true
+		}
+	}
+	return false
 }
