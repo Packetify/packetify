@@ -1,8 +1,11 @@
 package hostapd
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/exec"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -57,7 +60,7 @@ func (hst *HostapdBase) Validate() {
 	}
 }
 
-func ReadCfgFile(fPath string) *HostapdBase{
+func ReadCfgFile(fPath string,) *HostapdBase{
 	hstapd := &HostapdBase{}
 	cfgFile, err := ioutil.ReadFile(fPath)
 	if err != nil {
@@ -82,4 +85,15 @@ func ReadCfgFile(fPath string) *HostapdBase{
 		}
 	}
 	return hstapd
+}
+
+func Run(cfgPath string)error{
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		return errors.New("config file not exist can't run hostapd")
+	}
+	cmd := exec.Command("hostapd",cfgPath)
+	if err := cmd.Run() ;err!=nil{
+		return err
+	}
+	return nil
 }
