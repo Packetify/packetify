@@ -60,7 +60,7 @@ func (hst *HostapdBase) Validate() {
 	}
 }
 
-func ReadCfgFile(fPath string,) *HostapdBase{
+func ReadCfgFile(fPath string) *HostapdBase {
 	hstapd := &HostapdBase{}
 	cfgFile, err := ioutil.ReadFile(fPath)
 	if err != nil {
@@ -87,13 +87,15 @@ func ReadCfgFile(fPath string,) *HostapdBase{
 	return hstapd
 }
 
-func Run(cfgPath string)error{
+func Run(cfgPath string) (*exec.Cmd, error) {
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		return errors.New("config file not exist can't run hostapd")
+		return nil, errors.New("config file not exist can't run hostapd")
 	}
-	cmd := exec.Command("hostapd",cfgPath)
-	if err := cmd.Run() ;err!=nil{
-		return err
+	hstapdCmd := exec.Command("hostapd", cfgPath)
+
+	if err := hstapdCmd.Start(); err != nil {
+		return nil, err
 	}
-	return nil
+	go hstapdCmd.Wait()
+	return hstapdCmd, nil
 }

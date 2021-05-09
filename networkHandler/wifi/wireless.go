@@ -82,7 +82,7 @@ func (wifiDev *WifiDevice) CreateVirtualIface(virtIface string) error {
 //deletes virtual network interface if exist
 func (wifiDev *WifiDevice) DeleteVirtualIface(virtIface string) error {
 
-	if wifiDev.IsVirtInterface(virtIface) {
+	if wifiDev.IsVirtInterfaceAdded(virtIface) {
 		cmd := exec.Command("iw", "dev", virtIface, "del")
 		if err := cmd.Run(); err != nil {
 			return err
@@ -101,7 +101,7 @@ func (wifiDev *WifiDevice) DeleteVirtualIface(virtIface string) error {
 }
 
 //returns true if virtual interface created before
-func (wifiDev WifiDevice) IsVirtInterface(iface string) bool {
+func (wifiDev WifiDevice) IsVirtInterfaceAdded(iface string) bool {
 	for _, virtIF := range wifiDev.virtIfaces {
 		if iface == virtIF.Name {
 			return true
@@ -112,8 +112,8 @@ func (wifiDev WifiDevice) IsVirtInterface(iface string) bool {
 
 //assigns ip to virtual interface
 func (wifiDev WifiDevice) SetupIpToVirtIface(gatewayIP *net.IPNet, virtIface string) error {
-	if !wifiDev.IsVirtInterface(virtIface) {
-		return errors.New("ip assign failed virtual iface not exists")
+	if !wifiDev.IsVirtInterfaceAdded(virtIface) {
+		return errors.New("ip assign failed, virtual iface not created before")
 	}
 	ipcalc := ipv4calc.New(gatewayIP)
 	brodcastIP := ipcalc.GetBroadCastIP().String()
@@ -236,4 +236,12 @@ func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
 		}
 	}
 	return false
+}
+
+func DeleteInterface(iface string) error {
+	cmd := exec.Command("iw", "dev", iface, "del")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
 }
