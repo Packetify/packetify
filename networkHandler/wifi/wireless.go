@@ -228,6 +228,10 @@ func (wifiDev WifiDevice) GetSupportedFreq() []Frequency {
 	return freqList
 }
 
+//checks if specified channel supported by network card
+//for example:
+//2.4GHz = channel range 1-14
+//5GHz = channel tange 36-140
 func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
 	allFreqs := wifiDev.GetSupportedFreq()
 	for _, frq := range allFreqs {
@@ -238,6 +242,7 @@ func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
 	return false
 }
 
+//deletes wifi interface if exist returns error if not exist
 func DeleteInterface(iface string) error {
 	cmd := exec.Command("iw", "dev", iface, "del")
 	if err := cmd.Run(); err != nil {

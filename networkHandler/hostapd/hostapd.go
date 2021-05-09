@@ -28,26 +28,39 @@ type HostapdBase struct {
 	CtrlInterface  string `Hostapd:"ctrl_interface" Default:"/var/run/hostapd"`
 }
 
+//writes structs fields to given config file path by looking fields tags
 func WriteToCfgFile(hostapdCFG interface{}, fpath string) {
-	cfgType := reflect.TypeOf(hostapdCFG)
-	cfgVal := reflect.ValueOf(hostapdCFG)
-	if cfgType.Kind() != reflect.Struct {
-		panic("to write Hostapd config file, struct type needed")
-	}
-
 	var reSTR string
-	for index := 0; index < cfgType.NumField(); index++ {
-		tgs := cfgType.Field(index).Tag
-		if tgs.Get("Hostapd") != "" {
-			reSTR += fmt.Sprintf("%s=%v\n", tgs.Get("Hostapd"), cfgVal.Field(index).Interface())
+	var configure func(hstapd interface{})
+
+	configure = func(hstapd interface{}) {
+		cfgType := reflect.TypeOf(hstapd)
+		cfgVal := reflect.ValueOf(hstapd)
+		if cfgType.Kind() != reflect.Struct {
+			panic("to write Hostapd config file, struct type needed")
 		}
+
+		for index := 0; index < cfgType.NumField(); index++ {
+			if cfgVal.Field(index).Kind() == reflect.Struct {
+				configure(cfgVal.Field(index).Interface())
+			}
+
+			tgs := cfgType.Field(index).Tag
+			if tgs.Get("Hostapd") != "" {
+				reSTR += fmt.Sprintf("%s=%v\n", tgs.Get("Hostapd"), cfgVal.Field(index).Interface())
+			}
+		}
+		return
 	}
+	configure((hostapdCFG))
 	ioutil.WriteFile(fpath, []byte(reSTR), 0644)
 }
 
+//checks struct fields type if they wasn't declared it will assign default value by looking Default tag
 func (hst *HostapdBase) Validate() {
 	cfgType := reflect.TypeOf(hst).Elem()
 	cfgVal := reflect.ValueOf(hst).Elem()
+
 	for index := 0; index < cfgType.NumField(); index++ {
 		tgs := cfgType.Field(index).Tag
 		tmpField := cfgVal.Field(index)
@@ -60,15 +73,18 @@ func (hst *HostapdBase) Validate() {
 	}
 }
 
-func ReadCfgFile(fPath string) *HostapdBase {
-	hstapd := &HostapdBase{}
+func ReadCfgFile(hostapd interface{}, fPath string) {
 	cfgFile, err := ioutil.ReadFile(fPath)
 	if err != nil {
 		panic("can't read hostapd config file")
 	}
 
-	hostapdType := reflect.TypeOf(hstapd).Elem()
-	hostapdVal := reflect.ValueOf(hstapd).Elem()
+	hostapdType := reflect.TypeOf(hostapd).Elem()
+	hostapdVal := reflect.ValueOf(hostapd).Elem()
+
+	if hostapdType.Kind() != reflect.Struct {
+		panic("readCfgFile() just accepts struct type")
+	}
 
 	for index := 0; index < hostapdType.NumField(); index++ {
 		tgs := hostapdType.Field(index).Tag
@@ -84,7 +100,6 @@ func ReadCfgFile(fPath string) *HostapdBase {
 			hostapdVal.Field(index).Set(reflect.ValueOf(tmpint))
 		}
 	}
-	return hstapd
 }
 
 func Run(cfgPath string) (*exec.Cmd, error) {
@@ -96,6 +111,8 @@ func Run(cfgPath string) (*exec.Cmd, error) {
 	if err := hstapdCmd.Start(); err != nil {
 		return nil, err
 	}
-	go hstapdCmd.Wait()
+	go func() {
+		hstapdCmd.Wait()
+	}()
 	return hstapdCmd, nil
 }
