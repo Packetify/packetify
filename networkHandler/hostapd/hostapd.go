@@ -57,7 +57,7 @@ func WriteToCfgFile(hostapdCFG interface{}, fpath string) {
 }
 
 //checks struct fields type if they wasn't declared it will assign default value by looking Default tag
-func (hst *HostapdBase) Validate() {
+func (hst *HostapdBase) FillByDefault() {
 	cfgType := reflect.TypeOf(hst).Elem()
 	cfgVal := reflect.ValueOf(hst).Elem()
 
@@ -73,7 +73,7 @@ func (hst *HostapdBase) Validate() {
 	}
 }
 
-func ReadCfgFile(hostapd interface{}, fPath string) {
+func ReadCfgFileToStruct(hostapd interface{}, fPath string) {
 	cfgFile, err := ioutil.ReadFile(fPath)
 	if err != nil {
 		panic("can't read hostapd config file")
