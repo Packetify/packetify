@@ -3,6 +3,7 @@ package hostapd
 import (
 	"errors"
 	"fmt"
+	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -102,6 +103,17 @@ func ReadCfgFileToStruct(hostapd interface{}, fPath string) {
 	}
 }
 
+func ReadCfg(path string) (map[string]interface{}, error) {
+
+	cfgFile := viper.New()
+	cfgFile.SetConfigFile(path)
+	cfgFile.SetConfigType("properties")
+	if err := cfgFile.ReadInConfig(); err != nil {
+		return nil, err
+	}
+	return cfgFile.AllSettings(), nil
+}
+
 func Run(cfgPath string) (*exec.Cmd, error) {
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		return nil, errors.New("config file not exist can't run hostapd")
@@ -112,7 +124,9 @@ func Run(cfgPath string) (*exec.Cmd, error) {
 		return nil, err
 	}
 	go func() {
-		hstapdCmd.Wait()
+		if err := hstapdCmd.Wait(); err != nil {
+			panic(err)
+		}
 	}()
 	return hstapdCmd, nil
 }
