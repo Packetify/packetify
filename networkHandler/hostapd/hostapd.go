@@ -114,19 +114,24 @@ func ReadCfg(path string) (map[string]interface{}, error) {
 	return cfgFile.AllSettings(), nil
 }
 
-func Run(cfgPath string) (*exec.Cmd, error) {
+func Run(cfgPath string, daemon bool) (*exec.Cmd, error) {
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		return nil, errors.New("config file not exist can't run hostapd")
 	}
-	hstapdCmd := exec.Command("hostapd", cfgPath)
+	if daemon {
+		hstapdDaemonCmd := exec.Command("hostapd", "-B", cfgPath)
+		if err := hstapdDaemonCmd.Run(); err != nil {
+			return nil, err
+		}
+		return hstapdDaemonCmd, nil
+	}
 
+	hstapdCmd := exec.Command("hostapd", cfgPath)
 	if err := hstapdCmd.Start(); err != nil {
 		return nil, err
 	}
 	go func() {
-		if err := hstapdCmd.Wait(); err != nil {
-			panic(err)
-		}
+		hstapdCmd.Wait()
 	}()
 	return hstapdCmd, nil
 }
