@@ -114,6 +114,17 @@ func ReadCfg(path string) (map[string]interface{}, error) {
 	return cfgFile.AllSettings(), nil
 }
 
+func WriteCfg(path string, cfgData map[string]interface{}) error {
+	configContent := ""
+	for k, v := range cfgData {
+		configContent += fmt.Sprintf("%v=%v\n", k, v)
+	}
+	if err := ioutil.WriteFile(path, []byte(configContent), 0644); err != nil {
+		return err
+	}
+	return nil
+}
+
 func Run(cfgPath string, daemon bool) (*exec.Cmd, error) {
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		return nil, errors.New("config file not exist can't run hostapd")
