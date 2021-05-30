@@ -3,108 +3,92 @@ package hostapd
 import (
 	"errors"
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"reflect"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
+var (
+	HostapdBasic *viper.Viper
+)
+
+func init() {
+	hstapdBase := viper.New()
+	hstapdBase.SetDefault("driver", "nl80211")
+	hstapdBase.SetDefault("beacon_int", 100)
+	hstapdBase.SetDefault("channel", 1)
+	hstapdBase.SetDefault("ignore_broadcast_ssid", 0)
+	hstapdBase.SetDefault("ap_isolate", 0)
+	hstapdBase.SetDefault("hw_mode", "g")
+	hstapdBase.SetDefault("wpa", 1)
+	hstapdBase.SetDefault("wpa_key_mgmt", "WPA-PSK")
+	hstapdBase.SetDefault("rsn_pairwise", "CCMP")
+	hstapdBase.SetDefault("wpa_pairwise", "TKIP CCMP")
+	hstapdBase.SetDefault("ctrl_interface", "/var/run/hostapd")
+	HostapdBasic = hstapdBase
+}
+
 type HostapdBase struct {
-	Driver         string `Hostapd:"driver" Default:"nl80211"`
-	Ssid           string `Hostapd:"ssid" Default:"Packetify"`
+	Driver         string `Hostapd:"driver"`
+	Ssid           string `Hostapd:"ssid"`
 	Interface      string `Hostapd:"interface"`
-	BeaconInterval int    `Hostapd:"beacon_int" Default:"100" min:"15" max:"65535"`
-	Channel        int    `Hostapd:"channel" Default:"1"`
-	Ignorebrodcast int    `Hostapd:"ignore_broadcast_ssid" Default:"0" min:"1" max:"2"`
-	APIsolate      int    `Hostapd:"ap_isolate" Default:"0"`
-	HwMode         string `Hostapd:"hw_mode" Default:"g"`
-	WPA            int    `Hostapd:"wpa" Default:"1"`
+	BeaconInterval int    `Hostapd:"beacon_int"`
+	Channel        int    `Hostapd:"channel"`
+	Ignorebrodcast int    `Hostapd:"ignore_broadcast_ssid"`
+	APIsolate      int    `Hostapd:"ap_isolate"`
+	HwMode         string `Hostapd:"hw_mode"`
+	WPA            int    `Hostapd:"wpa"`
 	WPA_PassPhrase string `Hostapd:"wpa_passphrase"`
-	WPA_KeyMgmt    string `Hostapd:"wpa_key_mgmt" Default:"WPA-PSK"`
-	WPA_Pairwise   string `Hostapd:"rsn_pairwise" Default:"CCMP"`
-	CtrlInterface  string `Hostapd:"ctrl_interface" Default:"/var/run/hostapd"`
+	WPA_KeyMgmt    string `Hostapd:"wpa_key_mgmt"`
+	WPA_Pairwise   string `Hostapd:"wpa_pairwise"`
+	RSN_Pairwise   string `Hostapd:"rsn_pairwise"`
+	CtrlInterface  string `Hostapd:"ctrl_interface"`
 }
 
-//writes structs fields to given config file path by looking fields tags
-func WriteToCfgFile(hostapdCFG interface{}, fpath string) {
-	var reSTR string
-	var configure func(hstapd interface{})
-
-	configure = func(hstapd interface{}) {
-		cfgType := reflect.TypeOf(hstapd)
-		cfgVal := reflect.ValueOf(hstapd)
-		if cfgType.Kind() != reflect.Struct {
-			panic("to write Hostapd config file, struct type needed")
-		}
-
-		for index := 0; index < cfgType.NumField(); index++ {
-			if cfgVal.Field(index).Kind() == reflect.Struct {
-				configure(cfgVal.Field(index).Interface())
-			}
-
-			tgs := cfgType.Field(index).Tag
-			if tgs.Get("Hostapd") != "" {
-				reSTR += fmt.Sprintf("%s=%v\n", tgs.Get("Hostapd"), cfgVal.Field(index).Interface())
-			}
-		}
-		return
+func New(iface string, ssid string, password string, wpa int) HostapdBase {
+	var hostapdStruct HostapdBase
+	config := &mapstructure.DecoderConfig{
+		TagName: "Hostapd",
+		Result:  &hostapdStruct,
 	}
-	configure((hostapdCFG))
-	ioutil.WriteFile(fpath, []byte(reSTR), 0644)
-}
 
-//checks struct fields type if they wasn't declared it will assign default value by looking Default tag
-func (hst *HostapdBase) FillByDefault() {
-	cfgType := reflect.TypeOf(hst).Elem()
-	cfgVal := reflect.ValueOf(hst).Elem()
-
-	for index := 0; index < cfgType.NumField(); index++ {
-		tgs := cfgType.Field(index).Tag
-		tmpField := cfgVal.Field(index)
-		if tmpField.Kind() == reflect.String && tmpField.Interface() == "" {
-			tmpField.Set(reflect.ValueOf(tgs.Get("Default")))
-		} else if tmpField.Kind() == reflect.Int && tmpField.Interface() == 0 {
-			tmp, _ := strconv.Atoi(tgs.Get("Default"))
-			tmpField.Set(reflect.ValueOf(tmp))
-		}
-	}
-}
-
-func ReadCfgFileToStruct(hostapd interface{}, fPath string) {
-	cfgFile, err := ioutil.ReadFile(fPath)
+	hstDecoder, err := mapstructure.NewDecoder(config)
 	if err != nil {
-		panic("can't read hostapd config file")
+		panic(err)
 	}
-
-	hostapdType := reflect.TypeOf(hostapd).Elem()
-	hostapdVal := reflect.ValueOf(hostapd).Elem()
-
-	if hostapdType.Kind() != reflect.Struct {
-		panic("readCfgFile() just accepts struct type")
+	if err := hstDecoder.Decode(HostapdBasic.AllSettings()); err != nil {
+		panic(err)
 	}
+	hostapdStruct.Ssid = ssid
+	hostapdStruct.WPA_PassPhrase = password
+	hostapdStruct.WPA = wpa
+	hostapdStruct.Interface = iface
+	return hostapdStruct
+}
+func (hst *HostapdBase) ToMap() map[string]interface{} {
+	resMap := make(map[string]interface{})
+	hstType := reflect.TypeOf(hst).Elem()
+	hstVal := reflect.ValueOf(hst).Elem()
 
-	for index := 0; index < hostapdType.NumField(); index++ {
-		tgs := hostapdType.Field(index).Tag
-		r, _ := regexp.Compile(fmt.Sprintf("%s=.+", tgs.Get("Hostapd")))
-		fileLine := r.FindString(string(cfgFile))
-
-		valstr := strings.Split(fileLine, "=")[1]
-
-		if hostapdVal.Field(index).Kind() == reflect.String {
-			hostapdVal.Field(index).Set(reflect.ValueOf(valstr))
-		} else if hostapdVal.Field(index).Kind() == reflect.Int {
-			tmpint, _ := strconv.Atoi(valstr)
-			hostapdVal.Field(index).Set(reflect.ValueOf(tmpint))
+	for index := 0; index < hstType.NumField(); index++ {
+		tag := hstType.Field(index).Tag.Get("Hostapd")
+		if tag != "" {
+			resMap[tag] = hstVal.Field(index).Interface()
 		}
 	}
+	return resMap
+}
+func (hst *HostapdBase) WriteCfg(fpath string) error {
+	if err := WriteCfg(fpath, hst.ToMap()); err != nil {
+		return err
+	}
+	return nil
 }
 
 func ReadCfg(path string) (map[string]interface{}, error) {
-
 	cfgFile := viper.New()
 	cfgFile.SetConfigFile(path)
 	cfgFile.SetConfigType("properties")
