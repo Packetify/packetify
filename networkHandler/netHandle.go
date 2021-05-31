@@ -47,7 +47,7 @@ func EnableInternetSharing(iface string, netSahreIface string, ipRange net.IPNet
 	return nil
 }
 
-func IPTablesFlash()error{
+func IPTablesFlash() error {
 	ipt, _ := iptables.New()
 	if err := ipt.ClearAll(); err != nil {
 		return err

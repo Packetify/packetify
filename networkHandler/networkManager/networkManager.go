@@ -94,6 +94,8 @@ func (nm NetworkManager) RemoveUnmanaged(iface net.Interface) error {
 	return nil
 }
 
+//add iface as unmanaged interface by network manager
+//and changes will be write into file
 func (nm NetworkManager) AddUnmanaged(iface string) error {
 
 	if !networkHandler.IsNetworkInterface(iface) {
@@ -104,10 +106,8 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 		return errors.New("network Manager not exists")
 	}
 
-	//set iface as unmanaged via nmcli
-	cmd := exec.Command("nmcli", "device", "set", iface, "managed", "no")
-	if err := cmd.Run(); err != nil {
-		return errors.New("nmcli error for add unmanage device")
+	if err := UnmanageIface(iface); err != nil {
+		return err
 	}
 
 	//create config directory if not exist
@@ -162,6 +162,15 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 		}
 		defer f.Close()
 		f.WriteString(configString)
+	}
+	return nil
+}
+
+//set iface as unmanaged via nmcli
+func UnmanageIface(iface string) error {
+	cmd := exec.Command("nmcli", "device", "set", iface, "managed", "no")
+	if err := cmd.Run(); err != nil {
+		return errors.New("nmcli error for add unmanage device")
 	}
 	return nil
 }
