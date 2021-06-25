@@ -246,7 +246,7 @@ func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
 func DeleteInterface(iface string) error {
 	cmd := exec.Command("iw", "dev", iface, "del")
 	if err := cmd.Run(); err != nil {
-		return err
+		return errors.New("can't delete interface cause it doesn't exist ")
 	}
 	return nil
 }

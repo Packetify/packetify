@@ -27,7 +27,6 @@ type DHCPHandler struct {
 
 func (h *DHCPHandler) ServeDHCP(p dhcp4.Packet, msgType dhcp4.MessageType, options dhcp4.Options) (d dhcp4.Packet) {
 	switch msgType {
-
 	case dhcp4.Discover:
 		free, nic := -1, p.CHAddr().String()
 		for i, v := range h.Leases { // Find previous lease
