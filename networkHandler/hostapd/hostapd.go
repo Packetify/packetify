@@ -3,120 +3,56 @@ package hostapd
 import (
 	"errors"
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"reflect"
 )
 
-var (
-	HostapdBasic *viper.Viper
+type HstapdOption string
+
+const (
+	Driver            HstapdOption = "driver"
+	Ssid              HstapdOption = "ssid"
+	Interface         HstapdOption = "interface"
+	BeaconInterval    HstapdOption = "beacon_int"
+	Channel           HstapdOption = "channel"
+	Ignorebrodcast    HstapdOption = "ignore_broadcast_ssid"
+	APIsolate         HstapdOption = "ap_isolate"
+	HwMode            HstapdOption = "hw_mode"
+	WPA               HstapdOption = "wpa"
+	WPA_PassPhrase    HstapdOption = "wpa_passphrase"
+	WPA_KeyMgmt       HstapdOption = "wpa_key_mgmt"
+	WPA_Pairwise      HstapdOption = "wpa_pairwise"
+	RSN_Pairwise      HstapdOption = "rsn_pairwise"
+	CtrlInterface     HstapdOption = "ctrl_interface"
+	Auth_algs         HstapdOption = "auth_algs"
+	EAP_server        HstapdOption = "eap_server"
+	IEEE8021x         HstapdOption = "ieee8021x"
+	IEEE80211n        HstapdOption = "ieee80211n"
+	OKC               HstapdOption = "okc"
+	AuthServer_addr   HstapdOption = "auth_server_addr"
+	AuthServer_port   HstapdOption = "auth_server_port"
+	AuthServer_secret HstapdOption = "auth_server_shared_secret"
 )
 
-func init() {
-	hstapdBase := viper.New()
-	hstapdBase.SetDefault("driver", "nl80211")
-	hstapdBase.SetDefault("beacon_int", 100)
-	hstapdBase.SetDefault("channel", 1)
-	hstapdBase.SetDefault("ignore_broadcast_ssid", 0)
-	hstapdBase.SetDefault("ap_isolate", 0)
-	hstapdBase.SetDefault("hw_mode", "g")
-	hstapdBase.SetDefault("wpa", 1)
-	hstapdBase.SetDefault("wpa_key_mgmt", "WPA-PSK")
-	hstapdBase.SetDefault("rsn_pairwise", "CCMP")
-	hstapdBase.SetDefault("wpa_pairwise", "TKIP CCMP")
-	hstapdBase.SetDefault("ctrl_interface", "/var/run/hostapd")
-	hstapdBase.SetDefault("auth_algs", 3)
-	hstapdBase.SetDefault("eap_server", 0)
-	hstapdBase.SetDefault("ieee8021x", 0)
-	hstapdBase.SetDefault("ieee80211n", 0)
-	hstapdBase.SetDefault("okc", 0)
-	hstapdBase.SetDefault("disable_pmksa_caching", 0)
-	HostapdBasic = hstapdBase
-}
-
-type HostapdBase struct {
-	Driver         string `Hostapd:"driver"`
-	Ssid           string `Hostapd:"ssid"`
-	Interface      string `Hostapd:"interface"`
-	BeaconInterval uint16 `Hostapd:"beacon_int"`
-	Channel        int8   `Hostapd:"channel"`
-	Ignorebrodcast int8   `Hostapd:"ignore_broadcast_ssid"`
-	APIsolate      int8   `Hostapd:"ap_isolate"`
-	HwMode         string `Hostapd:"hw_mode"`
-	WPA            int8   `Hostapd:"wpa"`
-	WPA_PassPhrase string `Hostapd:"wpa_passphrase"`
-	WPA_KeyMgmt    string `Hostapd:"wpa_key_mgmt"`
-	WPA_Pairwise   string `Hostapd:"wpa_pairwise"`
-	RSN_Pairwise   string `Hostapd:"rsn_pairwise"`
-	CtrlInterface  string `Hostapd:"ctrl_interface"`
-	Auth_algs      int8   `Hostapd:"auth_algs"`
-	EAP_server     int8   `Hostapd:"eap_server"`
-	IEEE8021x      int8   `Hostapd:"ieee8021x"`
-	IEEE80211n     int8   `Hostapd:"ieee80211n"`
-	OKC            int8   `Hostapd:"okc"`
-}
-
-func New(iface string, ssid string, password string, wpa int8) HostapdBase {
-	var hostapdStruct HostapdBase
-	config := &mapstructure.DecoderConfig{
-		TagName: "Hostapd",
-		Result:  &hostapdStruct,
-	}
-
-	hstDecoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		panic(err)
-	}
-	if err := hstDecoder.Decode(HostapdBasic.AllSettings()); err != nil {
-		panic(err)
-	}
-	hostapdStruct.Ssid = ssid
-	hostapdStruct.WPA_PassPhrase = password
-	hostapdStruct.WPA = wpa
-	hostapdStruct.Interface = iface
-	return hostapdStruct
-}
-
-func (hst *HostapdBase) ToMap() map[string]interface{} {
-	return StructToMap(*hst)
-}
-
-func StructToMap(strct interface{}) map[string]interface{} {
-	var res map[string]interface{}
-	res = make(map[string]interface{})
-	var Mapping func(hstapdSTRCT interface{})
-
-	Mapping = func(hstapdSTRCT interface{}) {
-		hstType := reflect.TypeOf(hstapdSTRCT)
-		hstVal := reflect.ValueOf(hstapdSTRCT)
-
-		if hstType.Kind() != reflect.Struct {
-			panic("can't convert non struct type to map")
-		}
-		for index := 0; index < hstType.NumField(); index++ {
-			if hstVal.Field(index).Kind() == reflect.Struct {
-				Mapping(hstVal.Field(index).Interface())
-			}
-
-			tgs := hstType.Field(index).Tag
-			if tgs.Get("Hostapd") != "" {
-				res[tgs.Get("Hostapd")] = hstVal.Field(index).Interface()
-			}
-		}
-		return
-	}
-	Mapping(strct)
-	return res
-}
-
-func (hst *HostapdBase) WriteCfg(fpath string) error {
-	if err := WriteCfg(fpath, hst.ToMap()); err != nil {
-		return err
-	}
-	return nil
+func New(iface string, ssid string, password string, wpa int8) map[HstapdOption]interface{} {
+	hstapd := make(map[HstapdOption]interface{})
+	hstapd[Interface] = iface
+	hstapd[Driver] = "nl80211"
+	hstapd[Channel] = 6
+	hstapd[BeaconInterval] = 100
+	hstapd[Ignorebrodcast] = 0
+	hstapd[APIsolate] = 0
+	hstapd[HwMode] = "g"
+	hstapd[WPA_KeyMgmt] = "WPA-PSK"
+	hstapd[WPA_Pairwise] = "TKIP CCMP"
+	hstapd[RSN_Pairwise] = "CCMP"
+	hstapd[Ssid] = ssid
+	hstapd[WPA_PassPhrase] = password
+	hstapd[WPA] = wpa
+	hstapd[CtrlInterface] = "/var/run/hostapd"
+	return hstapd
 }
 
 func ReadCfg(path string) (map[string]interface{}, error) {
@@ -129,7 +65,7 @@ func ReadCfg(path string) (map[string]interface{}, error) {
 	return cfgFile.AllSettings(), nil
 }
 
-func WriteCfg(path string, cfgData map[string]interface{}) error {
+func WriteCfg(path string, cfgData map[HstapdOption]interface{}) error {
 	configContent := ""
 	for k, v := range cfgData {
 		configContent += fmt.Sprintf("%v=%v\n", k, v)
