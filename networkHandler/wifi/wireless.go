@@ -14,8 +14,8 @@ import (
 
 type WifiDevice struct {
 	Phy        string
-	virtIfaces []net.Interface
-	modes      []string
+	VirtIfaces []net.Interface
+	Modes      []string
 	net.Interface
 }
 
@@ -24,12 +24,19 @@ type Frequency struct {
 	Freq    string
 }
 
+var(
+	WifiDevicesList []WifiDevice
+)
+
+func init(){
+	WifiDevicesList = getWifiDevices()
+}
 //creates a new instance of wifiDevice struct
 func New(iface string) *WifiDevice {
 	if !networkHandler.IsNetworkInterface(iface) || !IsWifiDevice(iface) {
 		panic(errors.New("can't create wifi instance, iface is not a wifi device"))
 	}
-	for _, dev := range GetWifiDevices() {
+	for _, dev := range WifiDevicesList {
 		if dev.Name == iface {
 			return &dev
 		}
@@ -38,7 +45,7 @@ func New(iface string) *WifiDevice {
 }
 
 func IsWifiDevice(iface string) bool {
-	for _, dev := range GetWifiDevices() {
+	for _, dev := range WifiDevicesList {
 		if dev.Name == iface {
 			return true
 		}
@@ -73,7 +80,7 @@ func (wifiDev *WifiDevice) CreateVirtualIface(virtIface string) error {
 	allInterfaces, _ := net.Interfaces()
 	for _, iface := range allInterfaces {
 		if iface.Name == virtIface {
-			wifiDev.virtIfaces = append(wifiDev.virtIfaces, iface)
+			wifiDev.VirtIfaces = append(wifiDev.VirtIfaces, iface)
 		}
 	}
 	return nil
@@ -89,10 +96,10 @@ func (wifiDev *WifiDevice) DeleteVirtualIface(virtIface string) error {
 		}
 
 		virtListTemp := make([]net.Interface, 0)
-		for index, vif := range wifiDev.virtIfaces {
+		for index, vif := range wifiDev.VirtIfaces {
 			if vif.Name == virtIface {
-				virtListTemp = append(virtListTemp, wifiDev.virtIfaces[:index]...)
-				wifiDev.virtIfaces = append(virtListTemp, wifiDev.virtIfaces[index+1:]...)
+				virtListTemp = append(virtListTemp, wifiDev.VirtIfaces[:index]...)
+				wifiDev.VirtIfaces = append(virtListTemp, wifiDev.VirtIfaces[index+1:]...)
 			}
 		}
 		return nil
@@ -102,7 +109,7 @@ func (wifiDev *WifiDevice) DeleteVirtualIface(virtIface string) error {
 
 //returns true if virtual interface created before
 func (wifiDev WifiDevice) IsVirtInterfaceAdded(iface string) bool {
-	for _, virtIF := range wifiDev.virtIfaces {
+	for _, virtIF := range wifiDev.VirtIfaces {
 		if iface == virtIF.Name {
 			return true
 		}
@@ -136,7 +143,7 @@ func GetPhyOfDevice(iface string) (string, error) {
 	if !networkHandler.IsNetworkInterface(iface) {
 		return "", errors.New("error unkown iface can't find phy address")
 	}
-	devicesList := GetWifiDevices()
+	devicesList := WifiDevicesList
 	for _, dev := range devicesList {
 		if dev.Name == iface {
 			return dev.Phy, nil
@@ -146,7 +153,7 @@ func GetPhyOfDevice(iface string) (string, error) {
 }
 
 //returns a slice of wifi devices available in your machine
-func GetWifiDevices() []WifiDevice {
+func getWifiDevices() []WifiDevice {
 	var deviceList []WifiDevice
 	allInterfaces, _ := net.Interfaces()
 	phyDevices, _ := filepath.Glob("/sys/class/ieee80211/*")
@@ -160,7 +167,7 @@ func GetWifiDevices() []WifiDevice {
 			for _, dev := range allInterfaces {
 				if dev.Name == ifaceName {
 					wifidev := WifiDevice{Phy: phyName, Interface: dev}
-					wifidev.modes = wifidev.getModes()
+					wifidev.Modes = wifidev.getModes()
 					deviceList = append(deviceList, wifidev)
 				}
 			}
@@ -178,7 +185,7 @@ func (wifiDev WifiDevice) GetAdapterInfo() (string, error) {
 //returns true if iface has AP ability
 func (wifiDev WifiDevice) HasAPAndVirtIfaceMode() bool {
 	count := 0
-	for _, mode := range wifiDev.modes {
+	for _, mode := range wifiDev.Modes {
 		if mode == "AP" || mode == "AP/VLAN" {
 			count++
 		}
@@ -206,14 +213,15 @@ func (wifiDev WifiDevice) getModes() []string {
 
 //returns a slice of wifi adapter supported modes
 func (WifiDevice WifiDevice) GetAdapterModes() []string {
-	return WifiDevice.modes
+	return WifiDevice.Modes
 }
 
 //returns a slice of virtual interfaces created before
 func (WifiDevice WifiDevice) GetVirtIfaces() []net.Interface {
-	return WifiDevice.virtIfaces
+	return WifiDevice.VirtIfaces
 }
 
+//returns all frequencies wifi iface supports using iwlist owned by 'wireless_tools' package in arch
 func (wifiDev WifiDevice) GetSupportedFreq() []Frequency {
 	freqList := make([]Frequency, 0)
 	cmdOut, _ := exec.Command("iwlist", wifiDev.Name, "freq").Output()
