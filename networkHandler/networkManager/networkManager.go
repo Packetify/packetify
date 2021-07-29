@@ -12,10 +12,24 @@ import (
 	"strings"
 )
 
+type Device struct {
+	DevName    string
+	Type       string
+	Status     string
+	Connection string
+}
+
 type NetworkManager struct {
 	ConfigName string
 	ConfigPath string
 	ConfigDir  string
+}
+
+func init() {
+	//checks network manager exists
+	if _, err := GetVersion(); err != nil {
+		panic(err)
+	}
 }
 
 func NewNetworkManager(configName string) *NetworkManager {
@@ -43,10 +57,6 @@ func (nm NetworkManager) RemoveConfigFile() error {
 func (nm NetworkManager) RemoveUnmanaged(iface net.Interface) error {
 	if len(iface.Name) == 0 {
 		return errors.New("iface name is empty")
-	}
-	//checks network manager exists
-	if _, err := nm.GetVersion(); err != nil {
-		return errors.New("network Manager not exists")
 	}
 
 	//check if config directory exists
@@ -100,10 +110,6 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 
 	if !networkHandler.IsNetworkInterface(iface) {
 		return errors.New(fmt.Sprintf("the %s is not a network interface make sure it's availabe or created", iface))
-	}
-	//checks network manager exists
-	if _, err := nm.GetVersion(); err != nil {
-		return errors.New("network Manager not exists")
 	}
 
 	if err := UnmanageIface(iface); err != nil {
@@ -208,9 +214,18 @@ func (nm NetworkManager) ReadUnmanaged() []string {
 
 //returns nmcli version or error if not exists
 func (nm NetworkManager) GetVersion() (string, error) {
+	if version, err := GetVersion(); err != nil {
+		return "", err
+	} else {
+		return version, nil
+	}
+
+}
+
+func GetVersion() (string, error) {
 	nmversion, err := exec.Command("nmcli", "--version").Output()
 	if err != nil {
-		return "", errors.New("nmcli not exist")
+		return "", errors.New("nmcli(Network Manager) not available")
 	}
 	r, _ := regexp.Compile("[0-9]+(\\.[0-9]+)*\\.[0-9]+")
 	return r.FindString(string(nmversion)), nil
@@ -226,26 +241,21 @@ func (nm NetworkManager) IsUnmanaged(iface net.Interface) (bool, error) {
 	}
 
 	//gets network manager known devices and its status
-	cmdOut, err := exec.Command("nmcli", "-t", "-f", "DEVICE,STATE", "d").Output()
-	if err != nil {
-		return false, err
-	}
-
-	r, _ := regexp.Compile(fmt.Sprintf("%s:unmanaged", iface))
-	regexRes := r.FindString(string(cmdOut))
-	if len(regexRes) != 0 {
-		return true, nil
+	for _, dev := range GetWifiDevicesInfo() {
+		if dev.DevName == iface.Name && dev.Status == "unmanaged" {
+			return true, nil
+		}
 	}
 	return false, nil
 }
 
 //returns list of network ifaces known by network manager
 func (nm NetworkManager) KnownIface() []string {
-	output, err := exec.Command("nmcli", "-t", "-f", "DEVICE", "d").Output()
-	if err != nil {
-		panic(err)
+	var ifaceList []string
+	for _, dev := range GetWifiDevicesInfo() {
+		ifaceList = append(ifaceList, dev.DevName)
 	}
-	return strings.Split(string(output), "\n")
+	return ifaceList
 }
 
 //checks iface is in network manager known ifaces list
@@ -257,4 +267,40 @@ func (nm NetworkManager) KnowsIface(iface net.Interface) bool {
 		}
 	}
 	return false
+}
+
+func GetWifiDevicesInfo() []Device {
+	var deviceList []Device
+	output, err := exec.Command("nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "d").Output()
+	if err != nil {
+		panic(err)
+	}
+	devicesInfo := strings.Split(string(output), "\n")
+	for _, devline := range devicesInfo[:len(devicesInfo)-1] {
+		devTmp := strings.Split(devline, ":")
+		deviceList = append(deviceList, Device{devTmp[0], devTmp[1], devTmp[2], devTmp[3]})
+	}
+	return deviceList
+}
+
+func IsWifiEnabled()bool{
+	wifiStat,_ := exec.Command("nmcli","radio","wifi").Output()
+	if string(wifiStat[:len(wifiStat)-1]) == "enabled"{
+		return true
+	}
+	return false
+}
+
+func TurnWifiOn()error{
+	if _,err :=exec.Command("nmcli" ,"radio" ,"wifi" ,"on").Output();err!=nil{
+		return err
+	}
+	return nil
+}
+
+func TurnWifiOff()error{
+	if _,err :=exec.Command("nmcli" ,"radio" ,"wifi" ,"off").Output();err!=nil{
+		return err
+	}
+	return nil
 }
