@@ -54,3 +54,11 @@ func IPTablesFlash() error {
 	}
 	return nil
 }
+
+func IsCommandAvailable(command string) bool {
+	_, err := exec.Command("which", command).Output()
+	if err == nil {
+		return true
+	}
+	return false
+}
