@@ -3,11 +3,13 @@ module github.com/Packetify/packetify
 go 1.16
 
 require (
-	github.com/Packetify/ipcalc v0.0.0-20210426125024-8df832c7d139
-	github.com/coreos/go-iptables v0.6.0
+	github.com/Packetify/ipcalc v1.0.0
+	github.com/google/gopacket v1.1.19
 	github.com/krolaw/dhcp4 v0.0.0-20190909130307-a50d88189771
-	github.com/mitchellh/mapstructure v1.1.2
-	github.com/spf13/viper v1.7.1
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
-	golang.org/x/sys v0.0.0-20210510120138-977fb7262007 // indirect
+	github.com/miekg/dns v1.1.43
+	github.com/spf13/cobra v1.2.1
+	github.com/spf13/viper v1.8.1
+	golang.org/x/net v0.0.0-20211201190559-0a0e4e1bb54c // indirect
+	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881 // indirect
+	layeh.com/radius v0.0.0-20201203135236-838e26d0c9be
 )

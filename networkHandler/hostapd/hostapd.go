@@ -22,6 +22,7 @@ const (
 	HwMode            HstapdOption = "hw_mode"
 	WPA               HstapdOption = "wpa"
 	WPA_PassPhrase    HstapdOption = "wpa_passphrase"
+	WPA_PSK           HstapdOption = "wpa_psk"
 	WPA_KeyMgmt       HstapdOption = "wpa_key_mgmt"
 	WPA_Pairwise      HstapdOption = "wpa_pairwise"
 	RSN_Pairwise      HstapdOption = "rsn_pairwise"
@@ -76,24 +77,29 @@ func WriteCfg(path string, cfgData map[HstapdOption]interface{}) error {
 	return nil
 }
 
-func Run(cfgPath string, daemon bool) (*exec.Cmd, error) {
+func Run(cfgPath string, daemon bool) (cmd *exec.Cmd, err error) {
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		return nil, errors.New("config file not exist can't run hostapd")
 	}
-	if daemon {
-		hstapdDaemonCmd := exec.Command("hostapd", "-B", cfgPath)
-		if err := hstapdDaemonCmd.Run(); err != nil {
+
+	switch daemon {
+	case true:
+		cmd = exec.Command("hostapd", "-B", cfgPath)
+		if err := cmd.Run(); err != nil {
 			return nil, err
 		}
-		return hstapdDaemonCmd, nil
+		return cmd, nil
+	case false:
+		cmd = exec.Command("hostapd", cfgPath)
+		if err := cmd.Start(); err != nil {
+			return nil, err
+		}
+		go func() {
+			if err := cmd.Wait(); err != nil {
+				fmt.Println(err)
+			}
+		}()
+		return cmd, nil
 	}
-
-	hstapdCmd := exec.Command("hostapd", cfgPath)
-	if err := hstapdCmd.Start(); err != nil {
-		return nil, err
-	}
-	go func() {
-		hstapdCmd.Wait()
-	}()
-	return hstapdCmd, nil
+	return nil, errors.New("hostapd run error")
 }

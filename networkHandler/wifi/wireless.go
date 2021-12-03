@@ -2,14 +2,18 @@ package wifi
 
 import (
 	"errors"
+	"fmt"
 	"github.com/Packetify/ipcalc/ipv4calc"
 	"github.com/Packetify/packetify/networkHandler"
+	"log"
+	"math/rand"
 	"net"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type WifiDevice struct {
@@ -24,13 +28,19 @@ type Frequency struct {
 	Freq    string
 }
 
-var(
+var (
 	WifiDevicesList []WifiDevice
 )
 
-func init(){
+func init() {
+	for _, cmd := range []string{"iw", "iwlist", "ip"} {
+		if !networkHandler.IsCommandAvailable(cmd) {
+			log.Fatalf("command %s requierd by wifi package but is not available.", cmd)
+		}
+	}
 	WifiDevicesList = getWifiDevices()
 }
+
 //creates a new instance of wifiDevice struct
 func New(iface string) *WifiDevice {
 	if !networkHandler.IsNetworkInterface(iface) || !IsWifiDevice(iface) {
@@ -53,22 +63,40 @@ func IsWifiDevice(iface string) bool {
 	return false
 }
 
-//validate interface name, returns modified name if invalid, panic if empty
-func getValidIfName(iface string) string {
+// returns a valid interfaceName for virtual network interface
+func GetValidVirtIfaceName(word string) string {
+
+	getRandName := func() string {
+		src := rand.NewSource(time.Now().UnixNano())
+		rand1 := rand.New(src)
+		return fmt.Sprintf("%s%d", word, rand1.Intn(100))
+	}
+	for {
+		randName := getRandName()
+		if networkHandler.IsNetworkInterface(randName) {
+			continue
+		}
+		return randName
+	}
+}
+
+// validate interface name,often used for virtual iface name validation
+func ValidateIfaceName(iface string) error {
 	if len(iface) == 0 {
-		panic(errors.New("iface name could not be empty"))
+		return errors.New("iface name could not be empty")
 	}
-	r, _ := regexp.Compile("[[:alnum:]:;,-]*")
-	iface = strings.Join(r.FindAllString(iface, -1), "")
-	if _, err := strconv.Atoi(string(iface[0])); err == nil {
-		iface = "ap" + iface
+	r, _ := regexp.Compile("[a-zA-Z][a-zA-Z0-9]*")
+	if r.FindString(iface) == iface {
+		return nil
 	}
-	return iface
+	return errors.New("given network Iface name is invalid")
 }
 
 // creates a new virtual interface for access point on top of wifi interface via iw
 func (wifiDev *WifiDevice) CreateVirtualIface(virtIface string) error {
-	virtIface = getValidIfName(virtIface)
+	if err := ValidateIfaceName(virtIface); err != nil {
+		return err
+	}
 
 	if networkHandler.IsNetworkInterface(virtIface) {
 		return errors.New("interface already exists")
@@ -86,7 +114,7 @@ func (wifiDev *WifiDevice) CreateVirtualIface(virtIface string) error {
 	return nil
 }
 
-//deletes virtual network interface if exist
+// deletes virtual network interface if exist
 func (wifiDev *WifiDevice) DeleteVirtualIface(virtIface string) error {
 
 	if wifiDev.IsVirtInterfaceAdded(virtIface) {
@@ -107,7 +135,7 @@ func (wifiDev *WifiDevice) DeleteVirtualIface(virtIface string) error {
 	return errors.New("virtual iface is not exist")
 }
 
-//returns true if virtual interface created before
+// returns true if virtual interface created before
 func (wifiDev WifiDevice) IsVirtInterfaceAdded(iface string) bool {
 	for _, virtIF := range wifiDev.VirtIfaces {
 		if iface == virtIF.Name {
@@ -117,7 +145,7 @@ func (wifiDev WifiDevice) IsVirtInterfaceAdded(iface string) bool {
 	return false
 }
 
-//assigns ip to virtual interface
+// assigns ip to virtual interface
 func (wifiDev WifiDevice) SetupIpToVirtIface(gatewayIP *net.IPNet, virtIface string) error {
 	if !wifiDev.IsVirtInterfaceAdded(virtIface) {
 		return errors.New("ip assign failed, virtual iface not created before")
@@ -129,7 +157,6 @@ func (wifiDev WifiDevice) SetupIpToVirtIface(gatewayIP *net.IPNet, virtIface str
 	flush := exec.Command("ip", "addr", "flush", virtIface)
 	setUp := exec.Command("ip", "link", "set", "up", "dev", virtIface)
 	addIP := exec.Command("ip", "addr", "add", cidrIP, "broadcast", brodcastIP, "dev", virtIface)
-
 	commandList := []*exec.Cmd{setDown, flush, setUp, addIP}
 	for _, command := range commandList {
 		command.Run()
@@ -137,8 +164,8 @@ func (wifiDev WifiDevice) SetupIpToVirtIface(gatewayIP *net.IPNet, virtIface str
 	return nil
 }
 
-//returns phy of wifi devices by iface
-//returns empty string if iface wasn't 80211 or not exist
+// returns phy of wifi devices by iface
+// returns empty string if iface wasn't 80211 or not exist
 func GetPhyOfDevice(iface string) (string, error) {
 	if !networkHandler.IsNetworkInterface(iface) {
 		return "", errors.New("error unkown iface can't find phy address")
@@ -152,7 +179,7 @@ func GetPhyOfDevice(iface string) (string, error) {
 	return "", nil
 }
 
-//returns a slice of wifi devices available in your machine
+// returns a slice of wifi devices available in your machine
 func getWifiDevices() []WifiDevice {
 	var deviceList []WifiDevice
 	allInterfaces, _ := net.Interfaces()
@@ -176,13 +203,13 @@ func getWifiDevices() []WifiDevice {
 	return deviceList
 }
 
-//returns adapter info by iface
+// returns adapter info by iface
 func (wifiDev WifiDevice) GetAdapterInfo() (string, error) {
 	cmdOut, _ := exec.Command("iw", "phy", wifiDev.Phy, "info").Output()
 	return string(cmdOut), nil
 }
 
-//returns true if iface has AP ability
+// returns true if iface has AP ability
 func (wifiDev WifiDevice) HasAPAndVirtIfaceMode() bool {
 	count := 0
 	for _, mode := range wifiDev.Modes {
@@ -211,17 +238,17 @@ func (wifiDev WifiDevice) getModes() []string {
 	return modeList
 }
 
-//returns a slice of wifi adapter supported modes
+// GetAdapterModes returns a slice of wifi adapter supported modes
 func (WifiDevice WifiDevice) GetAdapterModes() []string {
 	return WifiDevice.Modes
 }
 
-//returns a slice of virtual interfaces created before
+// GetVirtIfaces returns a slice of virtual interfaces created before
 func (WifiDevice WifiDevice) GetVirtIfaces() []net.Interface {
 	return WifiDevice.VirtIfaces
 }
 
-//returns all frequencies wifi iface supports using iwlist owned by 'wireless_tools' package in arch
+// GetSupportedFreq returns all frequencies wifi iface supports using iwlist owned by 'wireless_tools' package in arch
 func (wifiDev WifiDevice) GetSupportedFreq() []Frequency {
 	freqList := make([]Frequency, 0)
 	cmdOut, _ := exec.Command("iwlist", wifiDev.Name, "freq").Output()
@@ -236,10 +263,10 @@ func (wifiDev WifiDevice) GetSupportedFreq() []Frequency {
 	return freqList
 }
 
-//checks if specified channel supported by network card
-//for example:
-//2.4GHz = channel range 1-14
-//5GHz = channel tange 36-140
+// checks if specified channel supported by network card
+// for example:
+// 2.4GHz = channel range 1-14
+// 5GHz = channel tange 36-140
 func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
 	allFreqs := wifiDev.GetSupportedFreq()
 	for _, frq := range allFreqs {
@@ -250,7 +277,7 @@ func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
 	return false
 }
 
-//deletes wifi/virtual interface if exist and returns error if not exist
+// deletes wifi/virtual interface if exist and returns error if not exist
 func DeleteInterface(iface string) error {
 	cmd := exec.Command("iw", "dev", iface, "del")
 	if err := cmd.Run(); err != nil {

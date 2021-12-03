@@ -22,14 +22,14 @@ func TestNetworkManager_IsUnmanaged(t *testing.T) {
 }
 
 func TestIsWifiEnabled(t *testing.T) {
-	fmt.Println("wifi Enabled: ",IsWifiEnabled())
+	fmt.Println("wifi Enabled: ", IsWifiEnabled())
 }
 
 func TestTurnWifiOn(t *testing.T) {
-	if !IsWifiEnabled(){
+	if !IsWifiEnabled() {
 		fmt.Println("wifi is off let's turn it on")
 	}
-	if err := TurnWifiOn();err!=nil{
+	if err := TurnWifiOn(); err != nil {
 		panic(err)
 	}
 }

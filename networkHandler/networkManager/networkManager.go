@@ -54,6 +54,7 @@ func (nm NetworkManager) RemoveConfigFile() error {
 	return nil
 }
 
+//removes unmanaged option for given interface from config file
 func (nm NetworkManager) RemoveUnmanaged(iface net.Interface) error {
 	if len(iface.Name) == 0 {
 		return errors.New("iface name is empty")
@@ -222,6 +223,7 @@ func (nm NetworkManager) GetVersion() (string, error) {
 
 }
 
+//returns the version of networkmanager using nmcli
 func GetVersion() (string, error) {
 	nmversion, err := exec.Command("nmcli", "--version").Output()
 	if err != nil {
@@ -231,6 +233,7 @@ func GetVersion() (string, error) {
 	return r.FindString(string(nmversion)), nil
 }
 
+//returns true if interface is unmanaged by networkmanager
 func (nm NetworkManager) IsUnmanaged(iface net.Interface) (bool, error) {
 	if !networkHandler.IsNetworkInterface(iface.Name) {
 		return false, errors.New("passed interface is not network interface")
@@ -269,6 +272,7 @@ func (nm NetworkManager) KnowsIface(iface net.Interface) bool {
 	return false
 }
 
+//returns all netwotk interface informations via nmcli
 func GetWifiDevicesInfo() []Device {
 	var deviceList []Device
 	output, err := exec.Command("nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "d").Output()
@@ -283,23 +287,26 @@ func GetWifiDevicesInfo() []Device {
 	return deviceList
 }
 
-func IsWifiEnabled()bool{
-	wifiStat,_ := exec.Command("nmcli","radio","wifi").Output()
-	if string(wifiStat[:len(wifiStat)-1]) == "enabled"{
+//checks if wifi is enable via nmcli
+func IsWifiEnabled() bool {
+	wifiStat, _ := exec.Command("nmcli", "radio", "wifi").Output()
+	if string(wifiStat[:len(wifiStat)-1]) == "enabled" {
 		return true
 	}
 	return false
 }
 
-func TurnWifiOn()error{
-	if _,err :=exec.Command("nmcli" ,"radio" ,"wifi" ,"on").Output();err!=nil{
+//turns wifi on via nmcli
+func TurnWifiOn() error {
+	if _, err := exec.Command("nmcli", "radio", "wifi", "on").Output(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func TurnWifiOff()error{
-	if _,err :=exec.Command("nmcli" ,"radio" ,"wifi" ,"off").Output();err!=nil{
+//turns wifi off via nmcli
+func TurnWifiOff() error {
+	if _, err := exec.Command("nmcli", "radio", "wifi", "off").Output(); err != nil {
 		return err
 	}
 	return nil
