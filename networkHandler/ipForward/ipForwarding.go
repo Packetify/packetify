@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-//enables ip forwarding via sysctl
+// EnableIpForwarding enables ip forwarding via sysctl
 func EnableIpForwarding() {
 	//do nothing if enabled
 	if IpForwardingStatus() {
@@ -22,7 +22,7 @@ func EnableIpForwarding() {
 	}
 }
 
-//enable ip forwarding for iface and system
+// EnableIpForwardingIface enables ip forwarding for iface and system
 func EnableIpForwardingIface(iface net.Interface) {
 	if !networkHandler.IsNetworkInterface(iface.Name) {
 		panic(errors.New("cant enable ip forwarding "))
@@ -41,7 +41,7 @@ func EnableIpForwardingIface(iface net.Interface) {
 	}
 }
 
-//returns ip forwarding status of specified device iface
+// IpForwardingStatusIface returns ip forwarding status of specified device iface
 func IpForwardingStatusIface(iface net.Interface) bool {
 	if !networkHandler.IsNetworkInterface(iface.Name) {
 		panic(errors.New("specified device is not a network interface"))
@@ -55,7 +55,7 @@ func IpForwardingStatusIface(iface net.Interface) bool {
 	return false
 }
 
-//checks ip forwarding status via sysctl returns true if enable and false if not
+// IpForwardingStatus checks ip forwarding status via sysctl returns true if enable and false if not
 func IpForwardingStatus() bool {
 	output, _ := exec.Command("sysctl", "net.ipv4.ip_forward").Output()
 	r, _ := regexp.Compile("= [01]")
@@ -68,7 +68,7 @@ func IpForwardingStatus() bool {
 	return false
 }
 
-//disable ip forwarding via sysctl
+// DisableIpForwarding disable ip forwarding via sysctl
 func DisableIpForwarding() {
 	//do nothing if disabled
 	if !IpForwardingStatus() {
@@ -79,7 +79,7 @@ func DisableIpForwarding() {
 	}
 }
 
-//disable ip forwarding for iface and system
+// DisableIpForwardingIface disable ip forwarding for iface and system
 func DisableIpForwardingIface(iface net.Interface) {
 	if !networkHandler.IsNetworkInterface(iface.Name) {
 		panic(errors.New("cant enable ip forwarding "))

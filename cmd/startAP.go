@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"github.com/Packetify/ipcalc/ipv4calc"
 	"github.com/Packetify/packetify/networkHandler"
 	"github.com/Packetify/packetify/networkHandler/dhcp4d"
@@ -51,7 +50,7 @@ var (
 			validateWlanIface(wlanIface)
 			ctx, cancel := context.WithCancel(context.Background())
 			var wg sync.WaitGroup
-
+			wlanIPNet.IP = dhcp4.IPAdd(wlanIPNet.IP, 1)
 			myAccessPoint := AccessPoint{
 				virtIfaceName,
 				wlanIface,
@@ -62,8 +61,6 @@ var (
 				"/tmp/hostapdCruella.conf",
 				netShare,
 			}
-
-			fmt.Println(myAccessPoint)
 			sigs := make(chan os.Signal, 1)
 			signal.Notify(sigs, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
 
@@ -74,7 +71,8 @@ var (
 					panic(err)
 				}
 			}()
-			//go packetParser.BandWidthUsageCal(myAccessPoint.IfaceName, myAccessPoint.IPRange)
+			//time.Sleep(5*time.Second)
+			//go packetParser.TotalBandWidthUsage(ctx,myAccessPoint.IfaceName, myAccessPoint.IPRange)
 			<-sigs
 
 			cancel()
@@ -98,7 +96,6 @@ func init() {
 	startAP.Flags().StringVarP(&netShare, "netshare", "n", "false", "--netshare \"eth0\"")
 	startAP.Flags().BoolVarP(&daemon, "daemon", "", false, "--daemon")
 
-	dhcp4.IPAdd(wlanIPNet.IP, 1)
 	startAP.MarkFlagRequired("wlaniface")
 }
 
