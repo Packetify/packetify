@@ -6,9 +6,6 @@ import (
 	"github.com/Packetify/packetify/networkHandler"
 	"github.com/Packetify/packetify/networkHandler/dhcp4d"
 	"github.com/Packetify/packetify/networkHandler/hostapd"
-	"github.com/Packetify/packetify/networkHandler/ipForward"
-	"github.com/Packetify/packetify/networkHandler/networkManager"
-	"github.com/Packetify/packetify/networkHandler/wifi"
 	"github.com/krolaw/dhcp4"
 	"github.com/krolaw/dhcp4/conn"
 	"github.com/spf13/cobra"
@@ -88,7 +85,7 @@ func init() {
 	_, defaultIPNet, _ := net.ParseCIDR("192.168.100.1/24")
 
 	startAP.Flags().StringVarP(&wlanIface, "wlaniface", "w", "", "--wlaniface \"wlan0\"")
-	startAP.Flags().StringVarP(&virtIfaceName, "virtiface", "v", wifi.GetValidVirtIfaceName("hotSpot"), "--virtIface \"hotspot\"")
+	startAP.Flags().StringVarP(&virtIfaceName, "virtiface", "v", networkHandler.GetValidVirtIfaceName("hotSpot"), "--virtIface \"hotspot\"")
 	startAP.Flags().IPNetVarP(&wlanIPNet, "ip", "", *defaultIPNet, "--ip ip")
 	startAP.Flags().IPVarP(&dnsServer, "dns", "d", net.IP{1, 1, 1, 1}, "-dns \"8.8.8.8\"")
 	startAP.Flags().StringVarP(&ssid, "ssid", "s", userdomain, "--ssid \"access point name\"")
@@ -101,7 +98,7 @@ func init() {
 
 func validateWlanIface(iface string) {
 	//New also validates iface existance
-	wlandev := wifi.New(iface)
+	wlandev := networkHandler.NewWIFI(iface)
 	if wlandev.HasAPAndVirtIfaceMode() {
 		log.Println("AP mode availabe")
 		return
@@ -112,16 +109,16 @@ func validateWlanIface(iface string) {
 
 func (AP AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShare string) error {
 
-	wifidev := wifi.New(AP.WifiIface)
+	wifidev := networkHandler.NewWIFI(AP.WifiIface)
 
-	ipForward.EnableIpForwardingIface(wifidev.Interface)
+	networkHandler.MainNetworkService.EnableIpForwardingIface(wifidev.Interface)
 
-	wifi.DeleteInterface(AP.IfaceName)
+	networkHandler.DeleteInterface(AP.IfaceName)
 	if err := wifidev.CreateVirtualIface(AP.IfaceName); err != nil {
 		return err
 	}
 
-	if err := networkManager.UnmanageIface(AP.IfaceName); err != nil {
+	if err := networkHandler.UnmanageIface(AP.IfaceName); err != nil {
 		return err
 	}
 
@@ -176,9 +173,9 @@ func (AP AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShare
 		networkHandler.IPTablesFlash()
 		cmd.Process.Kill()
 		pc.Close()
-		wifi.DeleteInterface(AP.IfaceName)
+		networkHandler.DeleteInterface(AP.IfaceName)
 		wifidev.DeleteVirtualIface(AP.IfaceName)
-		ipForward.DisableIpForwardingIface(wifidev.Interface)
+		networkHandler.MainNetworkService.DisableIpForwardingIface(wifidev.Interface)
 		wg.Done()
 		return nil
 	}

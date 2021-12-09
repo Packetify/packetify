@@ -1,4 +1,4 @@
-package networkManager
+package networkHandler
 
 import (
 	"fmt"

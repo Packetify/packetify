@@ -1,9 +1,8 @@
-package ipForward
+package networkHandler
 
 import (
 	"errors"
 	"fmt"
-	"github.com/Packetify/packetify/networkHandler"
 	"io/ioutil"
 	"net"
 	"os/exec"
@@ -12,9 +11,9 @@ import (
 )
 
 // EnableIpForwarding enables ip forwarding via sysctl
-func EnableIpForwarding() {
+func (ns *NetworkService) EnableIpForwarding() {
 	//do nothing if enabled
-	if IpForwardingStatus() {
+	if ns.IpForwardingStatus() {
 		return
 	}
 	if _, err := exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Output(); err != nil {
@@ -23,14 +22,14 @@ func EnableIpForwarding() {
 }
 
 // EnableIpForwardingIface enables ip forwarding for iface and system
-func EnableIpForwardingIface(iface net.Interface) {
-	if !networkHandler.IsNetworkInterface(iface.Name) {
+func (ns *NetworkService) EnableIpForwardingIface(iface net.Interface) {
+	if !ns.IsNetworkInterface(iface.Name) {
 		panic(errors.New("cant enable ip forwarding "))
 	}
-	EnableIpForwarding()
+	ns.EnableIpForwarding()
 
 	//do nothing if enabled
-	if IpForwardingStatusIface(iface) {
+	if ns.IpForwardingStatusIface(iface) {
 		return
 	}
 	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
@@ -42,8 +41,8 @@ func EnableIpForwardingIface(iface net.Interface) {
 }
 
 // IpForwardingStatusIface returns ip forwarding status of specified device iface
-func IpForwardingStatusIface(iface net.Interface) bool {
-	if !networkHandler.IsNetworkInterface(iface.Name) {
+func (ns *NetworkService) IpForwardingStatusIface(iface net.Interface) bool {
+	if !ns.IsNetworkInterface(iface.Name) {
 		panic(errors.New("specified device is not a network interface"))
 	}
 	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
@@ -56,7 +55,7 @@ func IpForwardingStatusIface(iface net.Interface) bool {
 }
 
 // IpForwardingStatus checks ip forwarding status via sysctl returns true if enable and false if not
-func IpForwardingStatus() bool {
+func (ns *NetworkService) IpForwardingStatus() bool {
 	output, _ := exec.Command("sysctl", "net.ipv4.ip_forward").Output()
 	r, _ := regexp.Compile("= [01]")
 	result := strings.Replace(r.FindString(string(output)), "= ", "", -1)
@@ -69,9 +68,9 @@ func IpForwardingStatus() bool {
 }
 
 // DisableIpForwarding disable ip forwarding via sysctl
-func DisableIpForwarding() {
+func (ns *NetworkService) DisableIpForwarding() {
 	//do nothing if disabled
-	if !IpForwardingStatus() {
+	if !ns.IpForwardingStatus() {
 		return
 	}
 	if _, err := exec.Command("sysctl", "-w", "net.ipv4.ip_forward=0").Output(); err != nil {
@@ -80,14 +79,14 @@ func DisableIpForwarding() {
 }
 
 // DisableIpForwardingIface disable ip forwarding for iface and system
-func DisableIpForwardingIface(iface net.Interface) {
-	if !networkHandler.IsNetworkInterface(iface.Name) {
+func (ns *NetworkService) DisableIpForwardingIface(iface net.Interface) {
+	if !ns.IsNetworkInterface(iface.Name) {
 		panic(errors.New("cant enable ip forwarding "))
 	}
-	DisableIpForwarding()
+	ns.DisableIpForwarding()
 
 	//do nothing if disabled
-	if !IpForwardingStatusIface(iface) {
+	if !ns.IpForwardingStatusIface(iface) {
 		return
 	}
 	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)

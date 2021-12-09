@@ -1,9 +1,8 @@
-package networkManager
+package networkHandler
 
 import (
 	"errors"
 	"fmt"
-	"github.com/Packetify/packetify/networkHandler"
 	"io/ioutil"
 	"net"
 	"os"
@@ -12,7 +11,7 @@ import (
 	"strings"
 )
 
-type Device struct {
+type NMDevice struct {
 	DevName    string
 	Type       string
 	Status     string
@@ -37,13 +36,16 @@ func NewNetworkManager(configName string) *NetworkManager {
 	if !strings.Contains(configName, ".conf") {
 		configName += ".conf"
 	}
-	nm := NetworkManager{ConfigName: configName, ConfigDir: configDir}
+	nm := NetworkManager{
+		ConfigName: configName,
+		ConfigDir: configDir,
+	}
 	nm.ConfigPath = fmt.Sprintf("%s/%s", configDir, configName)
 	return &nm
 }
 
-//removes config file if exists
-func (nm NetworkManager) RemoveConfigFile() error {
+// RemoveConfigFile removes config file if exists
+func (nm *NetworkManager) RemoveConfigFile() error {
 	//do nothing if file not exist
 	if _, err := os.Stat(nm.ConfigPath); os.IsNotExist(err) {
 		return nil
@@ -54,8 +56,8 @@ func (nm NetworkManager) RemoveConfigFile() error {
 	return nil
 }
 
-//removes unmanaged option for given interface from config file
-func (nm NetworkManager) RemoveUnmanaged(iface net.Interface) error {
+// RemoveUnmanaged removes unmanaged option for given interface from config file
+func (nm *NetworkManager) RemoveUnmanaged(iface net.Interface) error {
 	if len(iface.Name) == 0 {
 		return errors.New("iface name is empty")
 	}
@@ -105,11 +107,11 @@ func (nm NetworkManager) RemoveUnmanaged(iface net.Interface) error {
 	return nil
 }
 
-//add iface as unmanaged interface by network manager
-//and changes will be write into file
+// AddUnmanaged adds interface as unmanaged interface by network manager
+// and changes will be written into file
 func (nm NetworkManager) AddUnmanaged(iface string) error {
 
-	if !networkHandler.IsNetworkInterface(iface) {
+	if !MainNetworkService.IsNetworkInterface(iface) {
 		return errors.New(fmt.Sprintf("the %s is not a network interface make sure it's availabe or created", iface))
 	}
 
@@ -127,7 +129,7 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 
 	//add keyFile if not exist
 	//creates config file if not exist
-	nm_add_keyFile(nm.ConfigPath)
+	nmAddKeyFile(nm.ConfigPath)
 
 	unmanagedIfaces := nm.ReadUnmanaged()
 	configString := "unmanaged-devices="
@@ -173,7 +175,7 @@ func (nm NetworkManager) AddUnmanaged(iface string) error {
 	return nil
 }
 
-//set iface as unmanaged via nmcli
+// UnmanageIface set iface as unmanaged via nmcli
 func UnmanageIface(iface string) error {
 	cmd := exec.Command("nmcli", "device", "set", iface, "managed", "no")
 	if err := cmd.Run(); err != nil {
@@ -182,7 +184,7 @@ func UnmanageIface(iface string) error {
 	return nil
 }
 
-func nm_add_keyFile(cfgFile string) {
+func nmAddKeyFile(cfgFile string) {
 	keyFileString := []byte("[keyfile]\n")
 	r, _ := regexp.Compile("\\[keyfile\\]")
 	content, err := ioutil.ReadFile(cfgFile)
@@ -202,7 +204,7 @@ func nm_add_keyFile(cfgFile string) {
 	ioutil.WriteFile(cfgFile, keyFileString, 0755)
 }
 
-// reads config file and extract unmanaged interface if it was empty it will return nil
+// ReadUnmanaged reads config file and extract unmanaged interface if it was empty it will return nil
 func (nm NetworkManager) ReadUnmanaged() []string {
 	r, _ := regexp.Compile("unmanaged-devices=[[:alnum:]:;,-]*")
 	content, _ := ioutil.ReadFile(nm.ConfigPath)
@@ -213,7 +215,7 @@ func (nm NetworkManager) ReadUnmanaged() []string {
 	return nil
 }
 
-//returns nmcli version or error if not exists
+// GetVersion returns nmcli version or error if not exists
 func (nm NetworkManager) GetVersion() (string, error) {
 	if version, err := GetVersion(); err != nil {
 		return "", err
@@ -223,7 +225,7 @@ func (nm NetworkManager) GetVersion() (string, error) {
 
 }
 
-//returns the version of networkmanager using nmcli
+// GetVersion returns the version of networkmanager using nmcli
 func GetVersion() (string, error) {
 	nmversion, err := exec.Command("nmcli", "--version").Output()
 	if err != nil {
@@ -233,9 +235,9 @@ func GetVersion() (string, error) {
 	return r.FindString(string(nmversion)), nil
 }
 
-//returns true if interface is unmanaged by networkmanager
+// IsUnmanaged returns true if interface is unmanaged by networkmanager
 func (nm NetworkManager) IsUnmanaged(iface net.Interface) (bool, error) {
-	if !networkHandler.IsNetworkInterface(iface.Name) {
+	if !MainNetworkService.IsNetworkInterface(iface.Name) {
 		return false, errors.New("passed interface is not network interface")
 	}
 
@@ -252,7 +254,7 @@ func (nm NetworkManager) IsUnmanaged(iface net.Interface) (bool, error) {
 	return false, nil
 }
 
-//returns list of network ifaces known by network manager
+// KnownIface returns list of network ifaces known by network manager
 func (nm NetworkManager) KnownIface() []string {
 	var ifaceList []string
 	for _, dev := range GetWifiDevicesInfo() {
@@ -261,7 +263,7 @@ func (nm NetworkManager) KnownIface() []string {
 	return ifaceList
 }
 
-//checks iface is in network manager known ifaces list
+// KnowsIface checks iface is in network manager known ifaces list
 func (nm NetworkManager) KnowsIface(iface net.Interface) bool {
 	nmIfaces := nm.KnownIface()
 	for _, nmIface := range nmIfaces {
@@ -272,9 +274,9 @@ func (nm NetworkManager) KnowsIface(iface net.Interface) bool {
 	return false
 }
 
-//returns all netwotk interface informations via nmcli
-func GetWifiDevicesInfo() []Device {
-	var deviceList []Device
+// GetWifiDevicesInfo returns all netwotk interface informations via nmcli
+func GetWifiDevicesInfo() (deviceList []NMDevice) {
+
 	output, err := exec.Command("nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "d").Output()
 	if err != nil {
 		panic(err)
@@ -282,12 +284,12 @@ func GetWifiDevicesInfo() []Device {
 	devicesInfo := strings.Split(string(output), "\n")
 	for _, devline := range devicesInfo[:len(devicesInfo)-1] {
 		devTmp := strings.Split(devline, ":")
-		deviceList = append(deviceList, Device{devTmp[0], devTmp[1], devTmp[2], devTmp[3]})
+		deviceList = append(deviceList, NMDevice{devTmp[0], devTmp[1], devTmp[2], devTmp[3]})
 	}
 	return deviceList
 }
 
-//checks if wifi is enable via nmcli
+// IsWifiEnabled checks if wifi is enable via nmcli
 func IsWifiEnabled() bool {
 	wifiStat, _ := exec.Command("nmcli", "radio", "wifi").Output()
 	if string(wifiStat[:len(wifiStat)-1]) == "enabled" {
@@ -296,7 +298,7 @@ func IsWifiEnabled() bool {
 	return false
 }
 
-//turns wifi on via nmcli
+// TurnWifiOn turns wifi on via nmcli
 func TurnWifiOn() error {
 	if _, err := exec.Command("nmcli", "radio", "wifi", "on").Output(); err != nil {
 		return err
@@ -304,7 +306,7 @@ func TurnWifiOn() error {
 	return nil
 }
 
-//turns wifi off via nmcli
+// TurnWifiOff turns wifi off via nmcli
 func TurnWifiOff() error {
 	if _, err := exec.Command("nmcli", "radio", "wifi", "off").Output(); err != nil {
 		return err

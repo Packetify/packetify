@@ -3,7 +3,7 @@ package networkHandler
 import (
 	"testing"
 )
-
+var ns = NetworkService{}
 func TestIsCommandAvailable(t *testing.T) {
 	var tests = []struct {
 		command string
@@ -23,7 +23,7 @@ func TestIsCommandAvailable(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := IsCommandAvailable(test.command); got != test.want {
+		if got := ns.WhichCommand(test.command); got != test.want {
 			t.Errorf("IsCommandAvailable(%s)=%v", test.command, got)
 		}
 	}
