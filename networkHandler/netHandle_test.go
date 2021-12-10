@@ -3,7 +3,9 @@ package networkHandler
 import (
 	"testing"
 )
+
 var ns = NetworkService{}
+
 func TestIsCommandAvailable(t *testing.T) {
 	var tests = []struct {
 		command string

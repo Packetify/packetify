@@ -19,7 +19,7 @@ type WifiDevice struct {
 	Phy        string
 	VirtIfaces []net.Interface
 	Modes      []string
-	Driver	WifiDriver
+	Driver     WifiDriver
 	net.Interface
 }
 
@@ -27,17 +27,17 @@ type WifiDevice struct {
 // iw works only with nl80211 drivers,but Realtek still uses wext
 
 type WifiDriver struct {
-    Name string
+	Name         string
 	Manufacturer string
 	//cfg80211 is Kernel side of configuration management for wireless devices. is newer than wext
 	Cfg80211 bool
-	AP bool
+	AP       bool
 	//IBSS stands for Independent Basic Service Set. Its basically Ad-Hoc mode
-	IBSS bool
-	Mesh bool
+	IBSS    bool
+	Mesh    bool
 	Monitor bool
-	PHYMode string // a/b/g/n/ac
-	Busses []string // PCI / PCI-E / AHB / PCMCIA /USB / SDOI
+	PHYMode string   // a/b/g/n/ac
+	Busses  []string // PCI / PCI-E / AHB / PCMCIA /USB / SDOI
 }
 
 type Frequency struct {

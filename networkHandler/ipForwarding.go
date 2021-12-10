@@ -4,51 +4,61 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"os/exec"
-	"regexp"
 	"strings"
 )
 
 // EnableIpForwarding enables ip forwarding via sysctl
-func (ns *NetworkService) EnableIpForwarding() {
+func (ns *NetworkService) EnableIpForwarding() error {
 	//do nothing if enabled
 	if ns.IpForwardingStatus() {
-		return
+		return nil
 	}
 	if _, err := exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Output(); err != nil {
-		panic(errors.New(" error during enabling ip forwarding"))
+		log.Println(" Error Enable IP forwarding", err)
+		return err
 	}
+	log.Println("Enable IPForwarding")
+	return nil
 }
 
 // EnableIpForwardingIface enables ip forwarding for iface and system
-func (ns *NetworkService) EnableIpForwardingIface(iface net.Interface) {
+func (ns *NetworkService) EnableIpForwardingIface(iface net.Interface) error {
 	if !ns.IsNetworkInterface(iface.Name) {
-		panic(errors.New("cant enable ip forwarding "))
+		log.Printf("Error Enable IPForwarding %v is not iface", iface.Name)
+		return errors.New("cant enable IPForwarding")
 	}
-	ns.EnableIpForwarding()
+	if err := ns.EnableIpForwarding(); err != nil {
+		log.Println("Error Enable IPForwarding", err)
+		return err
+	}
 
 	//do nothing if enabled
 	if ns.IpForwardingStatusIface(iface) {
-		return
+		return nil
 	}
 	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
 	enbit := []byte("1")
 	err := ioutil.WriteFile(devPath, enbit, 0644)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
+		return err
 	}
+	log.Println("Enable IPForwarding for iface", iface.Name)
+	return nil
 }
 
-// IpForwardingStatusIface returns ip forwarding status of specified device iface
+// IpForwardingStatusIface returns ip forwarding status of specified network iface
 func (ns *NetworkService) IpForwardingStatusIface(iface net.Interface) bool {
 	if !ns.IsNetworkInterface(iface.Name) {
-		panic(errors.New("specified device is not a network interface"))
+		log.Fatalf("Error: IpForwardingStatusIface(%s)", iface.Name)
 	}
 	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
 	devStatus, _ := ioutil.ReadFile(devPath)
 	result := strings.Replace(string(devStatus), "\n", "", -1)
-	if result == "1" {
+	if strings.Contains(result, "1") {
 		return true
 	}
 	return false
@@ -56,38 +66,49 @@ func (ns *NetworkService) IpForwardingStatusIface(iface net.Interface) bool {
 
 // IpForwardingStatus checks ip forwarding status via sysctl returns true if enable and false if not
 func (ns *NetworkService) IpForwardingStatus() bool {
-	output, _ := exec.Command("sysctl", "net.ipv4.ip_forward").Output()
-	r, _ := regexp.Compile("= [01]")
-	result := strings.Replace(r.FindString(string(output)), "= ", "", -1)
-	if result == "0" {
+	cmdString := "sysctl net.ipv4.ip_forward | cut -d= -f2"
+	cmd := exec.Command("bash", "-c", cmdString)
+	out, err := cmd.Output()
+	log.Println(cmd.String())
+	if err != nil {
+		log.Fatalf("error during getting ip forwarding status: %s", err)
 		return false
-	} else if result == "1" {
+	}
+
+	if strings.Contains(string(out), "1") {
 		return true
 	}
 	return false
 }
 
 // DisableIpForwarding disable ip forwarding via sysctl
-func (ns *NetworkService) DisableIpForwarding() {
+func (ns *NetworkService) DisableIpForwarding() error {
 	//do nothing if disabled
 	if !ns.IpForwardingStatus() {
-		return
+		return nil
 	}
 	if _, err := exec.Command("sysctl", "-w", "net.ipv4.ip_forward=0").Output(); err != nil {
-		panic(errors.New(" error during disabling ip forwarding"))
+		log.Println(" Error Disable IP forwarding", err)
+		return err
 	}
+	log.Println("Disable IPForwarding")
+	return nil
 }
 
 // DisableIpForwardingIface disable ip forwarding for iface and system
-func (ns *NetworkService) DisableIpForwardingIface(iface net.Interface) {
+func (ns *NetworkService) DisableIpForwardingIface(iface net.Interface) error {
 	if !ns.IsNetworkInterface(iface.Name) {
-		panic(errors.New("cant enable ip forwarding "))
+		log.Println("Error Disable IPForwarding", iface.Name)
+		return fmt.Errorf("Error:  Disable IPForwarding %v", iface.Name)
 	}
-	ns.DisableIpForwarding()
+	if err := ns.DisableIpForwarding(); err != nil {
+		log.Println("Error Disable IPForwarding", err)
+		return err
+	}
 
 	//do nothing if disabled
 	if !ns.IpForwardingStatusIface(iface) {
-		return
+		return nil
 	}
 	devPath := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/forwarding", iface.Name)
 	disbit := []byte("1")
@@ -95,4 +116,6 @@ func (ns *NetworkService) DisableIpForwardingIface(iface net.Interface) {
 	if err != nil {
 		panic(err)
 	}
+	log.Println("Disable IPForwarding for iface", iface.Name)
+	return nil
 }

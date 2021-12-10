@@ -8,14 +8,14 @@ import (
 )
 
 type NetworkService struct {
-	Devices []*WifiDevice
+	Devices        []*WifiDevice
 	NetworkManager *NetworkManager
 }
 
 var MainNetworkService = NewNetworkService("packetify.conf")
 
 func NewNetworkService(nmCfgPath string) *NetworkService {
-    return &NetworkService{
+	return &NetworkService{
 		NetworkManager: NewNetworkManager(nmCfgPath),
 	}
 }

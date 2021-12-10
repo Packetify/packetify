@@ -38,7 +38,7 @@ func NewNetworkManager(configName string) *NetworkManager {
 	}
 	nm := NetworkManager{
 		ConfigName: configName,
-		ConfigDir: configDir,
+		ConfigDir:  configDir,
 	}
 	nm.ConfigPath = fmt.Sprintf("%s/%s", configDir, configName)
 	return &nm
