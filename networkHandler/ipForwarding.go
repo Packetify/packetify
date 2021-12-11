@@ -17,21 +17,17 @@ func (ns *NetworkService) EnableIpForwarding() error {
 		return nil
 	}
 	if _, err := exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1").Output(); err != nil {
-		log.Println(" Error Enable IP forwarding", err)
-		return err
+		return fmt.Errorf(" Error Enable IP forwarding %v", err)
 	}
-	log.Println("Enable IPForwarding")
 	return nil
 }
 
 // EnableIpForwardingIface enables ip forwarding for iface and system
 func (ns *NetworkService) EnableIpForwardingIface(iface net.Interface) error {
 	if !ns.IsNetworkInterface(iface.Name) {
-		log.Printf("Error Enable IPForwarding %v is not iface", iface.Name)
-		return errors.New("cant enable IPForwarding")
+		return errors.New("Error Enable IPForwarding " + iface.Name + " is not iface")
 	}
 	if err := ns.EnableIpForwarding(); err != nil {
-		log.Println("Error Enable IPForwarding", err)
 		return err
 	}
 
@@ -43,10 +39,8 @@ func (ns *NetworkService) EnableIpForwardingIface(iface net.Interface) error {
 	enbit := []byte("1")
 	err := ioutil.WriteFile(devPath, enbit, 0644)
 	if err != nil {
-		log.Fatal(err)
 		return err
 	}
-	log.Println("Enable IPForwarding for iface", iface.Name)
 	return nil
 }
 
@@ -88,21 +82,17 @@ func (ns *NetworkService) DisableIpForwarding() error {
 		return nil
 	}
 	if _, err := exec.Command("sysctl", "-w", "net.ipv4.ip_forward=0").Output(); err != nil {
-		log.Println(" Error Disable IP forwarding", err)
 		return err
 	}
-	log.Println("Disable IPForwarding")
 	return nil
 }
 
 // DisableIpForwardingIface disable ip forwarding for iface and system
 func (ns *NetworkService) DisableIpForwardingIface(iface net.Interface) error {
 	if !ns.IsNetworkInterface(iface.Name) {
-		log.Println("Error Disable IPForwarding", iface.Name)
 		return fmt.Errorf("Error:  Disable IPForwarding %v", iface.Name)
 	}
 	if err := ns.DisableIpForwarding(); err != nil {
-		log.Println("Error Disable IPForwarding", err)
 		return err
 	}
 
@@ -116,6 +106,5 @@ func (ns *NetworkService) DisableIpForwardingIface(iface net.Interface) error {
 	if err != nil {
 		panic(err)
 	}
-	log.Println("Disable IPForwarding for iface", iface.Name)
 	return nil
 }

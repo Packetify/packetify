@@ -15,6 +15,10 @@ import (
 	"time"
 )
 
+var (
+	ErrorInterfaceNotExist = errors.New("Interface does not exist")
+)
+
 type WifiDevice struct {
 	Phy        string
 	VirtIfaces []net.Interface
@@ -115,8 +119,8 @@ func ValidateIfaceName(iface string) error {
 	return errors.New("given network Iface name is invalid")
 }
 
-// CreateVirtualIface creates a new virtual interface for access point on top of wifi interface via iw
-func (wifiDev *WifiDevice) CreateVirtualIface(virtIface string) error {
+// IWCreateVirtualIface creates a new virtual interface for access point on top of wifi interface via iw
+func (wifiDev *WifiDevice) IWCreateVirtualIface(virtIface string) error {
 	if err := ValidateIfaceName(virtIface); err != nil {
 		return err
 	}
@@ -137,8 +141,8 @@ func (wifiDev *WifiDevice) CreateVirtualIface(virtIface string) error {
 	return nil
 }
 
-// DeleteVirtualIface deletes virtual network interface if exist
-func (wifiDev *WifiDevice) DeleteVirtualIface(virtIface string) error {
+// IWDeleteVirtualIface deletes virtual network interface if exist
+func (wifiDev *WifiDevice) IWDeleteVirtualIface(virtIface string) error {
 
 	if wifiDev.IsVirtInterfaceAdded(virtIface) {
 		cmd := exec.Command("iw", "dev", virtIface, "del")
@@ -226,8 +230,8 @@ func getWifiDevices() (deviceList []*WifiDevice) {
 	return deviceList
 }
 
-// GetAdapterInfo returns adapter info by iface
-func (wifiDev WifiDevice) GetAdapterInfo() (string, error) {
+// IWGetAdapterInfo returns adapter info by iface
+func (wifiDev WifiDevice) IWGetAdapterInfo() (string, error) {
 	cmdOut, _ := exec.Command("iw", "phy", wifiDev.Phy, "info").Output()
 	return string(cmdOut), nil
 }
@@ -249,7 +253,7 @@ func (wifiDev WifiDevice) HasAPAndVirtIfaceMode() bool {
 //returns wifi adaptor supported modes
 func (wifiDev WifiDevice) getModes() []string {
 	var modeList []string
-	cardInfo, _ := wifiDev.GetAdapterInfo()
+	cardInfo, _ := wifiDev.IWGetAdapterInfo()
 	r, _ := regexp.Compile("Supported interface modes:\\n(\\t\\t\\s\\*\\s([A-Za-z-/0-9]*)\\n)*")
 	adaptorModes := strings.Split(r.FindString(cardInfo), "\n")
 	for _, mode := range adaptorModes {
@@ -271,8 +275,8 @@ func (WifiDevice WifiDevice) GetVirtIfaces() []net.Interface {
 	return WifiDevice.VirtIfaces
 }
 
-// GetSupportedFreq returns all frequencies wifi iface supports using iwlist owned by 'wireless_tools' package in arch
-func (wifiDev WifiDevice) GetSupportedFreq() []Frequency {
+// IWListGetSupportedFreq returns all frequencies wifi iface supports using iwlist owned by 'wireless_tools' package in arch
+func (wifiDev WifiDevice) IWListGetSupportedFreq() []Frequency {
 	freqList := make([]Frequency, 0)
 	cmdOut, _ := exec.Command("iwlist", wifiDev.Name, "freq").Output()
 	r, _ := regexp.Compile("(\\d*)\\s:(\\s\\d*\\.\\d*.*)")
@@ -291,7 +295,7 @@ func (wifiDev WifiDevice) GetSupportedFreq() []Frequency {
 // 2.4GHz = channel range 1-14
 // 5GHz = channel tange 36-140
 func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
-	allFreqs := wifiDev.GetSupportedFreq()
+	allFreqs := wifiDev.IWListGetSupportedFreq()
 	for _, frq := range allFreqs {
 		if frq.Channel == channel {
 			return true
@@ -300,11 +304,14 @@ func (wifiDev WifiDevice) IsSupportedChannel(channel int) bool {
 	return false
 }
 
-// DeleteInterface deletes wifi/virtual interface if exist and returns error if not exist
-func DeleteInterface(iface string) error {
+// IWDeleteInterface deletes wifi/virtual interface if exist and returns error if not exist
+func IWDeleteInterface(iface string) error {
 	cmd := exec.Command("iw", "dev", iface, "del")
 	if err := cmd.Run(); err != nil {
-		return errors.New("can't delete interface cause it doesn't exist ")
+		if err.Error() == "exit status 237" {
+			return ErrorInterfaceNotExist
+		}
+		return err
 	}
 	return nil
 }

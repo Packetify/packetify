@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"github.com/Packetify/ipcalc/ipv4calc"
 	"github.com/Packetify/packetify/networkHandler"
 	"github.com/Packetify/packetify/networkHandler/dhcp4d"
@@ -12,6 +13,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -107,18 +109,31 @@ func validateWlanIface(iface string) {
 	}
 }
 
-func (AP AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShare string) error {
+func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShare string) error {
 
 	wifidev := networkHandler.NewWIFI(AP.WifiIface)
 
-	networkHandler.MainNetworkService.EnableIpForwardingIface(wifidev.Interface)
-
-	networkHandler.DeleteInterface(AP.IfaceName)
-	if err := wifidev.CreateVirtualIface(AP.IfaceName); err != nil {
+	if err := networkHandler.MainNetworkService.EnableIpForwardingIface(wifidev.Interface); err != nil {
+		log.Println("Error enabling IP forwarding", err)
 		return err
 	}
+	log.Println("Enable IPForwarding for iface", AP.IfaceName)
+
+	err := networkHandler.IWDeleteInterface(AP.IfaceName)
+	if err != nil && err != networkHandler.ErrorInterfaceNotExist {
+		log.Printf("Error deleting interface %v", err)
+		return err
+	}
+	log.Println("Deleted interface", AP.IfaceName)
+
+	if err := wifidev.IWCreateVirtualIface(AP.IfaceName); err != nil {
+		log.Println("Error creating virtual interface", err)
+		return err
+	}
+	log.Println("Created virtual interface", AP.IfaceName)
 
 	if err := networkHandler.UnmanageIface(AP.IfaceName); err != nil {
+		log.Println("Error unmanaging interface", err)
 		return err
 	}
 
@@ -138,31 +153,41 @@ func (AP AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShare
 		},
 	}
 
-	pc, _ := conn.NewUDP4BoundListener(AP.IfaceName, ":67")
-
+	dhcp4PacketConn, _ := conn.NewUDP4BoundListener(AP.IfaceName, ":67")
+	dhcpErr := false
 	go func() {
-		if err := dhcp4.Serve(pc, handler); err != nil {
+		if err := dhcp4.Serve(dhcp4PacketConn, handler); err != nil {
 			log.Println("dhcp server stoped....")
+			dhcpErr = true
 			return
 		}
 	}()
+	if dhcpErr {
+		log.Println("dhcp server stoped....")
+		return fmt.Errorf("dhcp server error")
+	}
 
 	if err := wifidev.SetupIpToVirtIface(&AP.IPRange, AP.IfaceName); err != nil {
+		log.Println("Error setting up IP to virtual interface", err)
 		return err
 	}
 
 	//hostapd
 	testHstapd := hostapd.New(AP.IfaceName, AP.Ssid, AP.Password, 2)
 	testHstapd[hostapd.Channel] = 6
-	hostapd.WriteCfg(AP.HostapdCFG, testHstapd)
+	if err := hostapd.WriteCfg(AP.HostapdCFG, testHstapd); err != nil {
+		log.Println("Error writing hostapd config file", err)
+		return err
+	}
 
-	cmd, err := hostapd.Run(AP.HostapdCFG, false)
+	HostapdCmd, err := hostapd.Run(AP.HostapdCFG, false)
 	if err != nil {
 		return err
 	}
 	if netShare != "false" {
 		err = networkHandler.EnableInternetSharing(AP.IfaceName, AP.InternetIface, AP.IPRange, true)
 		if err != nil {
+			log.Println("error Enable internet sharing", err)
 			return err
 		}
 	}
@@ -170,13 +195,53 @@ func (AP AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShare
 	select {
 	case <-ctx.Done():
 		log.Println("ap stopped...")
-		networkHandler.IPTablesFlash()
-		cmd.Process.Kill()
-		pc.Close()
-		networkHandler.DeleteInterface(AP.IfaceName)
-		wifidev.DeleteVirtualIface(AP.IfaceName)
-		networkHandler.MainNetworkService.DisableIpForwardingIface(wifidev.Interface)
+		if err := CleanUP(netShare, AP, HostapdCmd, dhcp4PacketConn, wifidev); err != nil {
+			log.Println("error cleaning up", err)
+			return err
+		}
 		wg.Done()
 		return nil
 	}
+}
+
+func CleanUP(netShare string, AP *AccessPoint, HostapdCmd *exec.Cmd, dhcpPacketConn net.PacketConn, wifidev *networkHandler.WifiDevice) (err error) {
+	log.Println("clean up")
+	if netShare != "false" {
+		err = networkHandler.DisableInternetSharing(AP.IfaceName, AP.InternetIface, AP.IPRange)
+		if err != nil {
+			log.Println("error Disable internet sharing", err)
+			return err
+		}
+		log.Println("Disable internet sharing")
+	}
+	if err = HostapdCmd.Process.Kill(); err != nil {
+		log.Println("error killing hostapd", err)
+		return err
+	}
+	log.Println("close hostapd process")
+
+	if err = dhcpPacketConn.Close(); err != nil {
+		log.Println("error closing dhcp server", err)
+		return err
+	}
+
+	if err = wifidev.IWDeleteVirtualIface(AP.IfaceName); err != nil {
+		log.Println("error deleting virtual interface", err)
+		return err
+	}
+	log.Printf("Delete virtual interfaces on %v", AP.IfaceName)
+
+	err = networkHandler.IWDeleteInterface(AP.IfaceName)
+	if err != nil && err != networkHandler.ErrorInterfaceNotExist {
+		log.Println("error deleting interface", err)
+		return err
+	}
+	log.Printf("Delete interface %v", AP.IfaceName)
+
+	if err = networkHandler.MainNetworkService.DisableIpForwardingIface(wifidev.Interface); err != nil {
+		log.Println("error disabling ip forwarding", err)
+		return err
+	}
+	log.Println("Disable IPForwarding")
+	return nil
 }
