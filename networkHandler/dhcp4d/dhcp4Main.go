@@ -78,7 +78,7 @@ func (h *DHCPHandler) ServeDHCP(p dhcp4.Packet, msgType dhcp4.MessageType, optio
 func (h *DHCPHandler) FreeLease() int {
 	now := time.Now()
 	b := rand.Intn(h.LeaseRange) // Try random first
-	for _, v := range [][]int{[]int{b, h.LeaseRange}, []int{0, b}} {
+	for _, v := range [][]int{{b, h.LeaseRange}, {0, b}} {
 		for i := v[0]; i < v[1]; i++ {
 			if l, ok := h.Leases[i]; !ok || l.Expiry.Before(now) {
 				return i

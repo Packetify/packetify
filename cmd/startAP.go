@@ -65,7 +65,7 @@ var (
 
 			go func() {
 				wg.Add(1)
-				if err := myAccessPoint.CreateAP(ctx, &wg, netShare); err != nil {
+				if err := myAccessPoint.CreateAP(ctx, &wg); err != nil {
 					log.Println("Error creating AP", err)
 					panic(err)
 				}
@@ -109,7 +109,7 @@ func validateWlanIface(iface string) {
 	}
 }
 
-func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShare string) error {
+func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup) error {
 
 	wifidev := networkHandler.NewWIFI(AP.WifiIface)
 
@@ -195,7 +195,7 @@ func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShar
 	select {
 	case <-ctx.Done():
 		log.Println("ap stopped...")
-		if err := CleanUP(netShare, AP, HostapdCmd, dhcp4PacketConn, wifidev); err != nil {
+		if err := AP.CleanupAP(HostapdCmd, dhcp4PacketConn, wifidev); err != nil {
 			log.Println("error cleaning up", err)
 			return err
 		}
@@ -204,7 +204,7 @@ func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, netShar
 	}
 }
 
-func CleanUP(netShare string, AP *AccessPoint, HostapdCmd *exec.Cmd, dhcpPacketConn net.PacketConn, wifidev *networkHandler.WifiDevice) (err error) {
+func (AP *AccessPoint) CleanupAP(HostapdCmd *exec.Cmd, dhcpPacketConn net.PacketConn, wifidev *networkHandler.WifiDevice) (err error) {
 	log.Println("clean up")
 	if netShare != "false" {
 		err = networkHandler.DisableInternetSharing(AP.IfaceName, AP.InternetIface, AP.IPRange)
