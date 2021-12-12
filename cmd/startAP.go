@@ -46,6 +46,9 @@ var (
 		Short: "start packetify access Point",
 
 		Run: func(cmd *cobra.Command, args []string) {
+			sigs := make(chan os.Signal, 1)
+			signal.Notify(sigs, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
+
 			validateWlanIface(wlanIface)
 			ctx, cancel := context.WithCancel(context.Background())
 			var wg sync.WaitGroup
@@ -57,15 +60,35 @@ var (
 				dnsServer,
 				ssid,
 				password,
-				"/tmp/hostapdCruella.conf",
+				"/tmp/hostapd.conf",
 				netShare,
 			}
-			sigs := make(chan os.Signal, 1)
-			signal.Notify(sigs, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
+			hostapdOptions := []hostapd.HostapdOption{
+				{
+					hostapd.Interface,
+					myAccessPoint.IfaceName,
+				},
+				{
+					hostapd.Ssid,
+					myAccessPoint.Ssid,
+				},
+				{
+					hostapd.WPA_PassPhrase,
+					myAccessPoint.Password,
+				},
+				{
+					hostapd.WPA,
+					2,
+				},
+				{
+					hostapd.Channel,
+					6,
+				},
+			}
 
 			go func() {
 				wg.Add(1)
-				if err := myAccessPoint.CreateAP(ctx, &wg); err != nil {
+				if err := myAccessPoint.CreateAP(ctx, &wg, hostapdOptions); err != nil {
 					log.Println("Error creating AP", err)
 					panic(err)
 				}
@@ -109,7 +132,7 @@ func validateWlanIface(iface string) {
 	}
 }
 
-func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup) error {
+func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, hostapdOptions []hostapd.HostapdOption) error {
 
 	wifidev := networkHandler.NewWIFI(AP.WifiIface)
 
@@ -173,9 +196,8 @@ func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup) error {
 	}
 
 	//hostapd
-	testHstapd := hostapd.New(AP.IfaceName, AP.Ssid, AP.Password, 2)
-	testHstapd[hostapd.Channel] = 6
-	if err := hostapd.WriteCfg(AP.HostapdCFG, testHstapd); err != nil {
+	Hstapd := hostapd.New(hostapdOptions...)
+	if err := hostapd.WriteCfg(AP.HostapdCFG, Hstapd); err != nil {
 		log.Println("Error writing hostapd config file", err)
 		return err
 	}
@@ -204,7 +226,8 @@ func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup) error {
 	}
 }
 
-func (AP *AccessPoint) CleanupAP(HostapdCmd *exec.Cmd, dhcpPacketConn net.PacketConn, wifidev *networkHandler.WifiDevice) (err error) {
+func (AP *AccessPoint) CleanupAP(HostapdCmd *exec.Cmd, dhcpPacketConn net.PacketConn,
+	wifidev *networkHandler.WifiDevice) (err error) {
 	log.Println("clean up")
 	if netShare != "false" {
 		err = networkHandler.DisableInternetSharing(AP.IfaceName, AP.InternetIface, AP.IPRange)
@@ -243,5 +266,10 @@ func (AP *AccessPoint) CleanupAP(HostapdCmd *exec.Cmd, dhcpPacketConn net.Packet
 		return err
 	}
 	log.Println("Disable IPForwarding")
+	if err = hostapd.RemoveConfigFile(AP.HostapdCFG); err != nil {
+		log.Println("error removing hostapd config file", err)
+		return err
+	}
+	log.Println("hostapd config file Removed")
 	return nil
 }

@@ -59,7 +59,6 @@ type Frequency struct {
 // TODO add cleanup
 
 func init() {
-
 	for _, cmd := range []string{"iw", "iwlist", "ip"} {
 		if !MainNetworkService.WhichCommand(cmd) {
 			log.Fatalf("command %s requierd by wifi package but is not available.", cmd)
@@ -315,3 +314,7 @@ func IWDeleteInterface(iface string) error {
 	}
 	return nil
 }
+
+//func Sysctl(){
+//	device,_,err:= syscall.Syscall(syscall.SYS_IOCTL, uintptr(syscall.Stdin), uintptr(0x8B01), uintptr(unsafe.Pointer(&winsize)))
+//}
