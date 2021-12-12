@@ -20,6 +20,8 @@ import (
 )
 
 // TODO: add validation for flags
+// TODO: handle daemonization
+// TODO: add vpn flag
 
 type AccessPoint struct {
 	IfaceName     string

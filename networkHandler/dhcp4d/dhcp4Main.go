@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// TODO: log connected devices
 // TODO: add option to allow/disallow clients to request specific IPs
 
 type Lease struct {

@@ -51,3 +51,16 @@ func (ns *NetworkService) WhichCommand(command string) bool {
 	}
 	return false
 }
+
+func (ns *NetworkService) EnablePPTPVPN() error {
+	if _, err := exec.Command("modprobe", "nf_nat_pptp").Output(); err != nil {
+		return err
+	}
+	return nil
+}
+func (ns *NetworkService) DisablePPTPVPN() error {
+	if _, err := exec.Command("modprobe", "-r", "nf_nat_pptp").Output(); err != nil {
+		return err
+	}
+	return nil
+}
