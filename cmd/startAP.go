@@ -40,6 +40,12 @@ var (
 	dnsServer     net.IP
 	netShare      string
 	daemon        bool
+	driver        string
+	isolateClient bool
+	channel       int
+	countryCode   string
+	wpaVersion    int
+	hidden        bool
 	startAP       = &cobra.Command{
 		Use:   "start -w wlan0 -n eth0 --ssid \"APName\" -p \"12345678\"",
 		Short: "start packetify access Point",
@@ -77,12 +83,34 @@ var (
 				},
 				{
 					hostapd.WPA,
-					2,
+					wpaVersion,
+				},
+				{
+					hostapd.Driver,
+					driver,
 				},
 				{
 					hostapd.Channel,
-					6,
+					channel,
 				},
+				{
+					hostapd.CountryCode,
+					countryCode,
+				},
+			}
+			if isolateClient {
+				log.Println("isolate clients enabled")
+				hostapdOptions = append(hostapdOptions, hostapd.HostapdOption{
+					Key:   hostapd.APIsolate,
+					Value: "1",
+				})
+			}
+			if hidden {
+				log.Println("hidden ssid enabled")
+				hostapdOptions = append(hostapdOptions, hostapd.HostapdOption{
+					Key:   hostapd.Ignorebrodcast,
+					Value: "1",
+				})
 			}
 
 			go func() {
@@ -116,6 +144,12 @@ func init() {
 	startAP.Flags().StringVarP(&password, "password", "p", "12345678", "--pasword \"securepass123\"")
 	startAP.Flags().StringVarP(&netShare, "netshare", "n", "false", "--netshare \"eth0\"")
 	startAP.Flags().BoolVarP(&daemon, "daemon", "", false, "--daemon")
+	startAP.Flags().StringVarP(&driver, "driver", "", "nl80211", "--driver \"nl80211\"")
+	startAP.Flags().BoolVarP(&isolateClient, "isolate", "", false, "Disable communication between clients")
+	startAP.Flags().IntVarP(&channel, "channel", "", 1, "Channel number")
+	startAP.Flags().StringVarP(&countryCode, "country", "", "US", "Set two-letter country code for regularity")
+	startAP.Flags().IntVarP(&wpaVersion, "wpa", "", 3, "Use 1 for WPA, use 2 for WPA2, use 1+2 for both")
+	startAP.Flags().BoolVarP(&hidden, "hidden", "", false, "Make the Access Point hidden (do not broadcast the SSID)")
 
 	startAP.MarkFlagRequired("wlaniface")
 }

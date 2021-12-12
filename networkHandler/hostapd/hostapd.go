@@ -40,6 +40,7 @@ const (
 	AuthServer_addr   HostapdOptionKeys = "auth_server_addr"
 	AuthServer_port   HostapdOptionKeys = "auth_server_port"
 	AuthServer_secret HostapdOptionKeys = "auth_server_shared_secret"
+	CountryCode       HostapdOptionKeys = "country_code"
 )
 
 func New(options ...HostapdOption) HostapdConfig {

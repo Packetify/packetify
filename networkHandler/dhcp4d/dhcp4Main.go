@@ -23,6 +23,7 @@ type DeviceInfo struct {
 	MacAddr  net.HardwareAddr
 	IPAddr   net.IP
 	HostName string
+	Time     time.Time
 }
 
 type DHCPHandler struct {
@@ -62,6 +63,7 @@ func (h *DHCPHandler) ServeDHCP(p dhcp4.Packet, msgType dhcp4.MessageType, optio
 			MacAddr:  p.CHAddr(),
 			IPAddr:   reqIP,
 			HostName: string(hostname),
+			Time:     time.Now(),
 		}
 		h.DevicesChan <- devspec
 		if reqIP == nil {
