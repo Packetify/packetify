@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"github.com/Packetify/ipcalc/ipv4calc"
 	"github.com/Packetify/packetify/networkHandler"
 	"github.com/Packetify/packetify/networkHandler/dhcp4d"
@@ -169,6 +168,7 @@ func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, hostapd
 		Start:         ipcalc.GetMinHost(),
 		LeaseRange:    ipcalc.GetValidHosts(),
 		Leases:        make(map[int]dhcp4d.Lease, 10),
+		DevicesChan:   make(chan dhcp4d.DeviceInfo),
 		Options: dhcp4.Options{
 			dhcp4.OptionSubnetMask:       AP.IPRange.Mask,
 			dhcp4.OptionRouter:           AP.IPRange.IP.To4(), // Presuming Server is also your router
@@ -177,18 +177,25 @@ func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, hostapd
 	}
 
 	dhcp4PacketConn, _ := conn.NewUDP4BoundListener(AP.IfaceName, ":67")
-	dhcpErr := false
 	go func() {
 		if err := dhcp4.Serve(dhcp4PacketConn, handler); err != nil {
 			log.Println("dhcp server stoped....")
-			dhcpErr = true
+			close(handler.DevicesChan)
 			return
 		}
 	}()
-	if dhcpErr {
-		log.Println("dhcp server stoped....")
-		return fmt.Errorf("dhcp server error")
-	}
+	go func() {
+		for {
+			select {
+			case dev := <-handler.DevicesChan:
+				log.Println(dev.HostName, dev.IPAddr, dev.MacAddr)
+			case <-ctx.Done():
+				log.Println("Stoping dhcp server and user log")
+				return
+
+			}
+		}
+	}()
 
 	if err := wifidev.SetupIpToVirtIface(&AP.IPRange, AP.IfaceName); err != nil {
 		log.Println("Error setting up IP to virtual interface", err)

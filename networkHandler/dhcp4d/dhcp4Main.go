@@ -8,11 +8,20 @@ import (
 	"time"
 )
 
+// TODO: log connected devices
+// TODO: add option to allow/disallow clients to request specific IPs
+
 type Lease struct {
 	ReqTime  time.Time
 	ReqIP    net.IP
 	Nic      string    // Client's CHAddr
 	Expiry   time.Time // When the lease expires
+	HostName string
+}
+
+type DeviceInfo struct {
+	MacAddr  net.HardwareAddr
+	IPAddr   net.IP
 	HostName string
 }
 
@@ -23,6 +32,7 @@ type DHCPHandler struct {
 	LeaseRange    int           // Number of IPs to distribute (starting from start)
 	LeaseDuration time.Duration // Lease period
 	Leases        map[int]Lease // Map to keep track of leases
+	DevicesChan   chan DeviceInfo
 }
 
 func (h *DHCPHandler) ServeDHCP(p dhcp4.Packet, msgType dhcp4.MessageType, options dhcp4.Options) (d dhcp4.Packet) {
@@ -47,7 +57,13 @@ func (h *DHCPHandler) ServeDHCP(p dhcp4.Packet, msgType dhcp4.MessageType, optio
 			return nil // Message not for this dhcp server
 		}
 		reqIP := net.IP(options[dhcp4.OptionRequestedIPAddress])
-
+		hostname := options[dhcp4.OptionHostName]
+		devspec := DeviceInfo{
+			MacAddr:  p.CHAddr(),
+			IPAddr:   reqIP,
+			HostName: string(hostname),
+		}
+		h.DevicesChan <- devspec
 		if reqIP == nil {
 			reqIP = net.IP(p.CIAddr())
 		}

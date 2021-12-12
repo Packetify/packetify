@@ -12,6 +12,8 @@ import (
 	"github.com/miekg/dns"
 )
 
+// TODO: add blacklisting
+
 var dataCH = make(map[string]string)
 var datamx = &sync.Mutex{}
 var flush = make(chan struct{})
