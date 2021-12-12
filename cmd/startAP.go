@@ -19,6 +19,8 @@ import (
 	"time"
 )
 
+// TODO: add validation for flags
+
 type AccessPoint struct {
 	IfaceName     string
 	WifiIface     string
@@ -46,9 +48,12 @@ var (
 	countryCode   string
 	wpaVersion    int
 	hidden        bool
+	denyMacFile   string
+	acceptMacFile string
 	startAP       = &cobra.Command{
-		Use:   "start -w wlan0 -n eth0 --ssid \"APName\" -p \"12345678\"",
-		Short: "start packetify access Point",
+		Use:     "createap",
+		Short:   "createap packetify access Point",
+		Example: "start -w wlan0 -n eth0 --ssid \"APName\" -p \"12345678\"",
 
 		Run: func(cmd *cobra.Command, args []string) {
 			sigs := make(chan os.Signal, 1)
@@ -113,6 +118,28 @@ var (
 				})
 			}
 
+			if len(denyMacFile) != 0 {
+				log.Println("deny mac file enabled")
+				hostapdOptions = append(hostapdOptions, hostapd.HostapdOption{
+					Key:   hostapd.DenyMacFile,
+					Value: denyMacFile,
+				})
+				hostapdOptions = append(hostapdOptions, hostapd.HostapdOption{
+					Key:   hostapd.MacAddrACL,
+					Value: "0",
+				})
+			} else if len(acceptMacFile) != 0 {
+				log.Println("accept mac file enabled")
+				hostapdOptions = append(hostapdOptions, hostapd.HostapdOption{
+					Key:   hostapd.AcceptMacFile,
+					Value: acceptMacFile,
+				})
+				hostapdOptions = append(hostapdOptions, hostapd.HostapdOption{
+					Key:   hostapd.MacAddrACL,
+					Value: "1",
+				})
+			}
+
 			go func() {
 				wg.Add(1)
 				if err := myAccessPoint.CreateAP(ctx, &wg, hostapdOptions); err != nil {
@@ -150,6 +177,8 @@ func init() {
 	startAP.Flags().StringVarP(&countryCode, "country", "", "US", "Set two-letter country code for regularity")
 	startAP.Flags().IntVarP(&wpaVersion, "wpa", "", 3, "Use 1 for WPA, use 2 for WPA2, use 1+2 for both")
 	startAP.Flags().BoolVarP(&hidden, "hidden", "", false, "Make the Access Point hidden (do not broadcast the SSID)")
+	startAP.Flags().StringVarP(&acceptMacFile, "acceptmac", "", "", "Accept lists are read from separate files")
+	startAP.Flags().StringVarP(&denyMacFile, "denymac", "", "", "Deny lists are read from separate files")
 
 	startAP.MarkFlagRequired("wlaniface")
 }

@@ -41,6 +41,9 @@ const (
 	AuthServer_port   HostapdOptionKeys = "auth_server_port"
 	AuthServer_secret HostapdOptionKeys = "auth_server_shared_secret"
 	CountryCode       HostapdOptionKeys = "country_code"
+	MacAddrACL        HostapdOptionKeys = "macaddr_acl"
+	AcceptMacFile     HostapdOptionKeys = "accept_mac_file"
+	DenyMacFile       HostapdOptionKeys = "deny_mac_file"
 )
 
 func New(options ...HostapdOption) HostapdConfig {
