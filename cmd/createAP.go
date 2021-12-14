@@ -55,7 +55,7 @@ var (
 	startAP       = &cobra.Command{
 		Use:     "createap",
 		Short:   "createap packetify access Point",
-		Example: "start -w wlan0 -n eth0 --ssid \"APName\" -p \"12345678\"",
+		Example: "sudo packetify createap -w wlp0s20f3 -n enp7s0 --ssid \"exampleAP\" -p \"12345678\" -d \"1.1.1.1\" --ip \"192.168.214.1/24\"",
 
 		Run: func(cmd *cobra.Command, args []string) {
 			sigs := make(chan os.Signal, 1)
@@ -165,15 +165,15 @@ func init() {
 	userdomain, _ := os.Hostname()
 	_, defaultIPNet, _ := net.ParseCIDR("192.168.100.1/24")
 
-	startAP.Flags().StringVarP(&wlanIface, "wlaniface", "w", "", "--wlaniface \"wlan0\"")
-	startAP.Flags().StringVarP(&virtIfaceName, "virtiface", "v", networkHandler.GetValidVirtIfaceName("hotSpot"), "--virtIface \"hotspot\"")
-	startAP.Flags().IPNetVarP(&wlanIPNet, "ip", "", *defaultIPNet, "--ip ip")
-	startAP.Flags().IPVarP(&dnsServer, "dns", "d", net.IP{1, 1, 1, 1}, "-dns \"8.8.8.8\"")
-	startAP.Flags().StringVarP(&ssid, "ssid", "s", userdomain, "--ssid \"access point name\"")
-	startAP.Flags().StringVarP(&password, "password", "p", "12345678", "--pasword \"securepass123\"")
-	startAP.Flags().StringVarP(&netShare, "netshare", "n", "false", "--netshare \"eth0\"")
-	startAP.Flags().BoolVarP(&daemon, "daemon", "", false, "--daemon")
-	startAP.Flags().StringVarP(&driver, "driver", "", "nl80211", "--driver \"nl80211\"")
+	startAP.Flags().StringVarP(&wlanIface, "wlaniface", "w", "", "set wireless interface name")
+	startAP.Flags().StringVarP(&virtIfaceName, "virtiface", "v", networkHandler.GetValidVirtIfaceName("hotSpot"), "set virtual interface name")
+	startAP.Flags().IPNetVarP(&wlanIPNet, "ip", "", *defaultIPNet, "set accesspoint ip range")
+	startAP.Flags().IPVarP(&dnsServer, "dns", "d", net.IP{1, 1, 1, 1}, "Set DNS returned by DHCP")
+	startAP.Flags().StringVarP(&ssid, "ssid", "s", userdomain, "set access point name")
+	startAP.Flags().StringVarP(&password, "password", "p", "12345678", "set accesspoint password")
+	startAP.Flags().StringVarP(&netShare, "netshare", "n", "false", "enable internet sharing(interface with internet)")
+	startAP.Flags().BoolVarP(&daemon, "daemon", "", false, "Run in the background")
+	startAP.Flags().StringVarP(&driver, "driver", "", "nl80211", "Choose your WiFi adapter driver")
 	startAP.Flags().BoolVarP(&isolateClient, "isolate", "", false, "Disable communication between clients")
 	startAP.Flags().IntVarP(&channel, "channel", "", 1, "Channel number")
 	startAP.Flags().StringVarP(&countryCode, "country", "", "US", "Set two-letter country code for regularity")
@@ -187,7 +187,10 @@ func init() {
 
 func validateWlanIface(iface string) {
 	//New also validates iface existance
-	wlandev := networkHandler.NewWIFI(iface)
+	wlandev,err := networkHandler.NewWIFI(iface)
+	if err!=nil{
+		log.Fatal(err)
+	}
 	if wlandev.HasAPAndVirtIfaceMode() {
 		log.Println("AP mode availabe")
 		return
@@ -198,7 +201,11 @@ func validateWlanIface(iface string) {
 
 func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, hostapdOptions []hostapd.HostapdOption) error {
 
-	wifidev := networkHandler.NewWIFI(AP.WifiIface)
+	wifidev,err := networkHandler.NewWIFI(AP.WifiIface)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
 	if err := networkHandler.MainNetworkService.EnableIpForwardingIface(wifidev.Interface); err != nil {
 		log.Println("Error enabling IP forwarding", err)
@@ -206,7 +213,7 @@ func (AP *AccessPoint) CreateAP(ctx context.Context, wg *sync.WaitGroup, hostapd
 	}
 	log.Println("Enable IPForwarding for iface", AP.IfaceName)
 
-	err := networkHandler.IWDeleteInterface(AP.IfaceName)
+	err = networkHandler.IWDeleteInterface(AP.IfaceName)
 	if err != nil && err != networkHandler.ErrorInterfaceNotExist {
 		log.Printf("Error deleting interface %v", err)
 		return err

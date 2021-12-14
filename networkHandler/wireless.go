@@ -68,16 +68,16 @@ func init() {
 }
 
 // NewWIFI creates a new instance of wifiDevice struct
-func NewWIFI(iface string) *WifiDevice {
+func NewWIFI(iface string) (*WifiDevice,error) {
 	if !MainNetworkService.IsNetworkInterface(iface) || !IsWifiDevice(iface) {
-		panic(errors.New("can't create wifi instance, iface is not a wifi device"))
+		return nil,ErrorInterfaceNotExist
 	}
 	for _, dev := range MainNetworkService.Devices {
 		if dev.Name == iface {
-			return dev
+			return dev,nil
 		}
 	}
-	return nil
+	return nil,ErrorInterfaceNotExist
 }
 
 func IsWifiDevice(iface string) bool {
@@ -318,3 +318,12 @@ func IWDeleteInterface(iface string) error {
 //func Sysctl(){
 //	device,_,err:= syscall.Syscall(syscall.SYS_IOCTL, uintptr(syscall.Stdin), uintptr(0x8B01), uintptr(unsafe.Pointer(&winsize)))
 //}
+
+func (wifiDev *WifiDevice)IWClientsInfo()(string,error){
+
+	 out,err:= exec.Command("iw", "dev", wifiDev.Interface.Name, "station", "dump").Output()
+	 if err!=nil{
+		 return "",err
+	 }
+	 return string(out),nil
+}
