@@ -52,6 +52,12 @@ var (
 	hidden        bool
 	denyMacFile   string
 	acceptMacFile string
+	dnsmasq       bool
+	dnsblockFile      string
+	openvpn string
+	powersave bool
+	enablevpn bool
+
 	startAP       = &cobra.Command{
 		Use:     "createap",
 		Short:   "createap packetify access Point",
@@ -181,6 +187,12 @@ func init() {
 	startAP.Flags().BoolVarP(&hidden, "hidden", "", false, "Make the Access Point hidden (do not broadcast the SSID)")
 	startAP.Flags().StringVarP(&acceptMacFile, "acceptmac", "", "", "Accept lists are read from separate files")
 	startAP.Flags().StringVarP(&denyMacFile, "denymac", "", "", "Deny lists are read from separate files")
+	startAP.Flags().BoolVarP(&dnsmasq,"dnsmasq","",false,"use dnsmasq as dhcp , dns server")
+	startAP.Flags().StringVarP(&dnsblockFile,"dnsblock","","","block dns request of domain/ip in file")
+	startAP.Flags().StringVarP(&openvpn,"openvpn","","","run openvpn config pass all traffic throgh vpn")
+	startAP.Flags().BoolVarP(&enablevpn,"vpn","",false,"enable clients use vpn")
+	startAP.Flags().BoolVarP(&powersave,"powersave","",false,"enable powersaving on interface")
+
 
 	startAP.MarkFlagRequired("wlaniface")
 }

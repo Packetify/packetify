@@ -49,7 +49,7 @@ type Frequency struct {
 	Freq    string
 }
 
-// WifiDevicesList TODO add get all drivers in linux kernel (/lib/modules/5.15.2-arch1-1/kernel/drivers/net/wireless)
+// TODO add get all drivers in linux kernel (/lib/modules/5.15.2-arch1-1/kernel/drivers/net/wireless)
 // TODO add get details of each driver (modinfo maybe)
 // TODO get loaded wifi modules (lsmod)
 // TODO get driver of each interface (/sys/class/net/wlp0s20f3/device/driver/module/drivers)
